@@ -1,59 +1,59 @@
 import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
+import { ActivitySquare, Clock, Users, Hospital } from 'lucide-react';
 
 const CARDS = [
-  { title: 'Active Incidents', key: 'activeCount',     icon: '🚨', color: '#C0392B', glow: 'rgba(192,57,43,0.3)',    accent: '#C0392B', delta: '+3 this hour' },
-  { title: 'Avg Response',     key: 'avgResponse',      icon: '⏱',  color: '#2E6BE6', glow: 'rgba(46,107,230,0.3)',  accent: '#2E6BE6', delta: '↓ 2 min faster' },
-  { title: 'Responders',       key: 'respondersCount',  icon: '🚑',  color: '#1A7A4A', glow: 'rgba(26,122,74,0.3)',   accent: '#1A7A4A', delta: '45 on duty' },
-  { title: 'Hospitals Online', key: 'hospitalsOnline',  icon: '🏥',  color: '#D4AF37', glow: 'rgba(212,175,55,0.3)',  accent: '#D4AF37', delta: '12 available' },
+  { title: 'ACTIVE INCIDENTS', key: 'activeCount',     icon: ActivitySquare, color: 'var(--alert-red)' },
+  { title: 'AVG RESPONSE',     key: 'avgResponse',     icon: Clock,          color: 'var(--ai-blue)' },
+  { title: 'RESPONDERS',       key: 'respondersCount', icon: Users,          color: 'var(--premium-gold)' },
+  { title: 'HOSPITALS ONLINE', key: 'hospitalsOnline', icon: Hospital,       color: 'var(--safe-green)' },
 ];
 
-function AnimatedCounter({ value, duration = 1.5 }) {
+function AnimatedCounter({ value }) {
   const ref = useRef(null);
   useEffect(() => {
     const isNum = !isNaN(parseFloat(String(value)));
-    if (!isNum || !ref.current) return;
+    if (!isNum || !ref.current) {
+      if (ref.current) ref.current.textContent = value;
+      return;
+    }
     const numVal = parseFloat(String(value));
-    gsap.from({ v: 0 }, {
-      v: numVal,
-      duration,
-      ease: 'power2.out',
-      onUpdate() {
-        if (ref.current) ref.current.textContent = Math.round(this.targets()[0].v);
-      },
+    gsap.fromTo({ v: 0 }, { v: 0 }, {
+      v: numVal, duration: 1.5, ease: 'power2.out',
+      onUpdate() { if (ref.current) ref.current.textContent = Math.round(this.targets()[0].v); }
     });
-  }, [value, duration]);
-
+  }, [value]);
   return <span ref={ref}>{value}</span>;
 }
 
-export default function SummaryCards({ activeCount = 12, avgResponse = '12 min', respondersCount = 45, hospitalsOnline = 18 }) {
-  const values = { activeCount, avgResponse, respondersCount, hospitalsOnline };
+export default function SummaryCards({ activeCount = 0, avgResponse = '0', respondersCount = 0, hospitalsOnline = 0 }) {
+  const values = { activeCount, avgResponse: parseFloat(avgResponse) || 0, respondersCount, hospitalsOnline };
 
   return (
-    <div className="summary-cards">
-      {CARDS.map((card, i) => (
-        <motion.div
-          key={card.key}
-          className="summary-card"
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.1, duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-          whileHover={{ y: -6, transition: { type: 'spring', stiffness: 400 } }}
-          style={{
-            '--card-accent': card.accent,
-            '--card-glow': card.glow,
-          }}
-        >
-          <div className="sc-icon">{card.icon}</div>
-          <div className="sc-value" style={{ color: card.color }}>
-            <AnimatedCounter value={values[card.key]} />
-          </div>
-          <div className="sc-title">{card.title}</div>
-          <div className="sc-delta">{card.delta}</div>
-        </motion.div>
-      ))}
+    <div className="kpi-grid">
+      {CARDS.map((card, i) => {
+        const Icon = card.icon;
+        return (
+          <motion.div
+            key={card.key}
+            className="kpi-card"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className="kpi-header">
+              <span className="kpi-title">{card.title}</span>
+              <Icon size={16} color={card.color} />
+            </div>
+            <div className="kpi-value" style={{ color: card.color }}>
+              <AnimatedCounter value={values[card.key]} />
+              {card.key === 'avgResponse' && <span style={{ fontSize: 14, color: 'var(--text-muted)', marginLeft: 4 }}>MIN</span>}
+            </div>
+            <div style={{ height: 2, width: '40%', background: card.color, opacity: 0.5, marginTop: 'auto' }} />
+          </motion.div>
+        );
+      })}
     </div>
   );
 }

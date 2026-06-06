@@ -4,125 +4,63 @@ import gsap from 'gsap';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+// Raw SVG strings for map icons to avoid ReactDOMServer overhead in Leaflet
+const createIcon = (svg, color) => new L.DivIcon({
+  className: 'map-marker-pin',
+  html: `<div style="background:${color};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;border:2px solid #fff;box-shadow:0 0 16px ${color}88;">${svg}</div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
-const TYPE_COLORS = {
-  Medical: '#2E6BE6',
-  Fire: '#C0392B',
-  Security: '#D4AF37',
-  Accident: '#E67E22',
+const SVGS = {
+  Medical: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>`,
+  Fire: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
+  Security: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>`,
+  Accident: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H8.3a2 2 0 0 0-1.6.8L4 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm-10 0a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg>`,
+  Hospital: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20"/></svg>`,
+  Responder: `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`
 };
 
-const createIncidentIcon = (type) => {
-  const color = TYPE_COLORS[type] || '#7A8BB5';
-  const icon = type === 'Medical' ? '❤️' : type === 'Fire' ? '🔥' : type === 'Security' ? '🛡' : '🚗';
-  return new L.DivIcon({
-    className: '',
-    html: `<div style="
-      background:${color};
-      width:32px;height:32px;border-radius:50% 50% 50% 0;
-      transform:rotate(-45deg);
-      border:2px solid white;
-      box-shadow:0 0 12px ${color}88;
-      display:flex;align-items:center;justify-content:center;
-    "><span style="transform:rotate(45deg);font-size:14px;">${icon}</span></div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
-  });
-};
+const TYPE_COLORS = { Medical: '#3B82F6', Fire: '#E5484D', Security: '#D4AF37', Accident: '#F59E0B' };
 
-const hospitalIcon = new L.DivIcon({
-  className: '',
-  html: `<div style="background:#1A7A4A;color:white;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-weight:bold;font-size:14px;border:2px solid white;box-shadow:0 0 10px rgba(26,122,74,0.6);">+</div>`,
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-});
-
-const responderIcon = new L.DivIcon({
-  className: '',
-  html: `<div style="background:#2E6BE6;width:20px;height:20px;border-radius:50%;border:2px solid white;box-shadow:0 0 10px rgba(46,107,230,0.6);display:flex;align-items:center;justify-content:center;font-size:10px;">🚑</div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-});
-
-function DarkTiles() {
-  return (
-    <TileLayer
-      url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-    />
-  );
-}
+const getIncidentIcon = (t) => createIcon(SVGS[t] || SVGS.Medical, TYPE_COLORS[t] || '#3B82F6');
+const hospIcon = createIcon(SVGS.Hospital, '#10B981');
+const respIcon = createIcon(SVGS.Responder, '#2E6BE6');
 
 function MapAnimator() {
   const map = useMap();
   useEffect(() => {
-    gsap.from(map.getContainer(), { opacity: 0, duration: 1, ease: 'power2.out' });
+    gsap.from(map.getContainer(), { opacity: 0, duration: 1.5, ease: 'power2.out' });
   }, [map]);
   return null;
 }
 
 export default function LEINMap({ incidents, hospitals, responders, setSelectedIncident }) {
   return (
-    <div className="map-wrapper">
-      <div className="map-overlay-badge">
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#27AE60', display: 'inline-block' }} />
-        Lagos Emergency Network — Live View
+    <div style={{ height: '100%', width: '100%', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 999, background: 'rgba(2,8,23,0.8)', padding: '8px 16px', borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 8, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
+        <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--safe-green)', boxShadow: '0 0 8px var(--safe-green)' }} />
+        LAGOS TACTICAL OVERVIEW
       </div>
-      <MapContainer
-        center={[6.5244, 3.3792]}
-        zoom={12}
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={false}
-      >
-        <DarkTiles />
+      <MapContainer center={[6.5244, 3.3792]} zoom={12} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; <a href="https://carto.com/">CARTO</a>' />
         <MapAnimator />
 
-        {incidents.map(incident => (
-          <Marker
-            key={`inc-${incident.id}`}
-            position={[incident.lat, incident.lng]}
-            icon={createIncidentIcon(incident.type)}
-            eventHandlers={{ click: () => setSelectedIncident(incident) }}
-          >
-            <Popup>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13, minWidth: 160 }}>
-                <strong>{incident.type}</strong>
-                <p style={{ margin: '4px 0', color: '#666', fontSize: 12 }}>{incident.description}</p>
-                <div style={{ fontSize: 11, color: '#2E6BE6' }}>Priority: {incident.priority_score}/10</div>
-              </div>
-            </Popup>
+        {incidents.map(inc => (
+          <Marker key={inc.id} position={[inc.lat, inc.lng]} icon={getIncidentIcon(inc.type)} eventHandlers={{ click: () => setSelectedIncident(inc) }}>
+            <Popup><div style={{ background: '#000', padding: 8, color: '#fff', fontSize: 12 }}><strong>{inc.type}</strong><br/>{inc.lga} LGA</div></Popup>
           </Marker>
         ))}
 
-        {hospitals.map(hospital => (
-          <Marker key={`hosp-${hospital.id}`} position={[hospital.lat, hospital.lng]} icon={hospitalIcon}>
-            <Popup>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
-                <strong>{hospital.name}</strong>
-                <div style={{ fontSize: 11, color: hospital.capacity > 80 ? '#C0392B' : '#1A7A4A' }}>
-                  Capacity: {hospital.capacity}%
-                </div>
-              </div>
-            </Popup>
+        {hospitals.map(h => (
+          <Marker key={h.id} position={[h.lat, h.lng]} icon={hospIcon}>
+            <Popup><div style={{ background: '#000', padding: 8, color: '#fff', fontSize: 12 }}><strong>{h.name}</strong><br/>CAPACITY: {h.capacity}%</div></Popup>
           </Marker>
         ))}
 
-        {responders.map(responder => (
-          <Marker key={`resp-${responder.id}`} position={[responder.lat, responder.lng]} icon={responderIcon}>
-            <Popup>
-              <div style={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
-                <strong>{responder.name}</strong>
-                <div style={{ fontSize: 11, color: responder.status === 'available' ? '#1A7A4A' : '#C0392B' }}>
-                  ● {responder.status}
-                </div>
-              </div>
-            </Popup>
+        {responders.map(r => (
+          <Marker key={r.id} position={[r.lat, r.lng]} icon={respIcon}>
+            <Popup><div style={{ background: '#000', padding: 8, color: '#fff', fontSize: 12 }}><strong>{r.name}</strong><br/>STATUS: {r.status}</div></Popup>
           </Marker>
         ))}
       </MapContainer>

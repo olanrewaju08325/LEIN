@@ -1,58 +1,66 @@
-import { NavLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { NavLink, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { ShieldAlert, Activity, LayoutDashboard, LineChart } from 'lucide-react';
 
 export default function Navbar() {
-  const [time, setTime] = useState(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+  const [time, setTime] = useState('');
+  const location = useLocation();
 
   useEffect(() => {
-    const t = setInterval(() => setTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })), 1000);
+    const updateTime = () => {
+      const now = new Date();
+      setTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' WAT');
+    };
+    updateTime();
+    const t = setInterval(updateTime, 1000);
     return () => clearInterval(t);
   }, []);
 
+  const links = [
+    { to: '/', label: 'Intake', icon: Activity },
+    { to: '/dashboard', label: 'Command', icon: LayoutDashboard },
+    { to: '/analytics', label: 'Intelligence', icon: LineChart },
+  ];
+
   return (
-    <motion.nav
-      className="lein-navbar"
-      initial={{ y: -64, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
-    >
-      <NavLink to="/" className="navbar-logo">
-        <motion.div
-          className="navbar-logo-icon"
-          whileHover={{ scale: 1.1, boxShadow: '0 0 30px rgba(46,107,230,0.5)' }}
-        >
-          🚨
-        </motion.div>
-        <div>
-          <div className="navbar-logo-title">LEIN</div>
-          <div className="navbar-logo-sub">Respond. Predict. Save Lives.</div>
+    <div className="nav-wrapper">
+      <motion.nav
+        className="lein-navbar"
+        initial={{ y: -50, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <NavLink to="/" className="navbar-logo">
+          <ShieldAlert className="navbar-logo-icon" size={24} />
+          <div className="navbar-logo-title">LEIN.OS</div>
+        </NavLink>
+
+        <div className="navbar-links">
+          {links.map(({ to, label, icon: Icon }) => {
+            const isActive = location.pathname === to || (to === '/' && location.pathname === '');
+            return (
+              <NavLink key={to} to={to} className={`navbar-link ${isActive ? 'active' : ''}`}>
+                <Icon size={14} />
+                {label}
+                {isActive && (
+                  <motion.div
+                    layoutId="navIndicator"
+                    className="nav-active-indicator"
+                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                  />
+                )}
+              </NavLink>
+            );
+          })}
         </div>
-      </NavLink>
 
-      <nav className="navbar-links">
-        {[
-          { to: '/', label: 'Report', icon: '📋', end: true },
-          { to: '/dashboard', label: 'Dashboard', icon: '🗺' },
-          { to: '/analytics', label: 'Analytics', icon: '📊' },
-        ].map(({ to, label, icon, end }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={end}
-            className={({ isActive }) => `navbar-link${isActive ? ' active' : ''}`}
-          >
-            <span>{icon}</span>
-            {label}
-          </NavLink>
-        ))}
-      </nav>
-
-      <div className="navbar-status">
-        <span className="navbar-time">{time}</span>
-        <div className="status-dot" />
-        <span>Online</span>
-      </div>
-    </motion.nav>
+        <div className="navbar-status">
+          <span className="navbar-time">{time}</span>
+          <div className="status-dot" />
+          <span style={{ color: 'var(--safe-green)' }}>SYS.OP</span>
+        </div>
+      </motion.nav>
+    </div>
   );
 }

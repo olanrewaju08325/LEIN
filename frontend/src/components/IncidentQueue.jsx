@@ -1,84 +1,71 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { Activity, Flame, ShieldAlert, CarFront } from 'lucide-react';
 
 const TYPE_META = {
-  Medical:  { icon: '❤️', color: '#2E6BE6', glow: 'rgba(46,107,230,0.4)' },
-  Fire:     { icon: '🔥', color: '#C0392B', glow: 'rgba(192,57,43,0.4)' },
-  Security: { icon: '🛡', color: '#D4AF37', glow: 'rgba(212,175,55,0.4)' },
-  Accident: { icon: '🚗', color: '#E67E22', glow: 'rgba(230,126,34,0.4)' },
+  Medical:  { icon: Activity,    color: 'var(--med-blue)' },
+  Fire:     { icon: Flame,       color: 'var(--alert-red)' },
+  Security: { icon: ShieldAlert, color: 'var(--premium-gold)' },
+  Accident: { icon: CarFront,    color: 'var(--warn-amber)' },
 };
 
 export default function IncidentQueue({ incidents, selectedIncident, setSelectedIncident }) {
-  const getMeta = (type) => TYPE_META[type] || { icon: '⚠️', color: '#7A8BB5', glow: 'rgba(122,139,181,0.3)' };
+  const getMeta = (type) => TYPE_META[type] || { icon: Activity, color: '#94A3B8' };
 
   return (
-    <div className="incident-queue">
-      <div className="queue-header">
-        <h2>Active Incidents</h2>
-        <span className="live-badge">{incidents.length} Live</span>
-      </div>
+    <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <AnimatePresence>
+        {incidents.map((incident) => {
+          const meta = getMeta(incident.type);
+          const Icon = meta.icon;
+          const isSelected = selectedIncident?.id === incident.id;
+          const isCritical = incident.priority_score > 7;
+          
+          return (
+            <motion.div
+              layout
+              key={incident.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className={`incident-card ${isSelected ? 'selected' : ''}`}
+              style={{
+                '--severity-color': isCritical ? 'var(--alert-red)' : meta.color,
+                boxShadow: isCritical && isSelected ? '0 0 24px rgba(229,72,77,0.2)' : 'none'
+              }}
+              onClick={() => setSelectedIncident(incident)}
+            >
+              <div className="inc-header">
+                <div className="inc-type" style={{ color: meta.color }}>
+                  <Icon size={16} /> {incident.type}
+                </div>
+                <div className="inc-time">
+                  {incident.timestamp ? new Date(incident.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'NOW'}
+                </div>
+              </div>
+              
+              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 12, fontWeight: 500 }}>
+                {incident.lga} LGA
+              </div>
 
-      <div className="queue-list">
-        <AnimatePresence>
-          {incidents.map((incident) => {
-            const meta = getMeta(incident.type);
-            const isSelected = selectedIncident?.id === incident.id;
-            return (
-              <motion.div
-                layout
-                key={incident.id}
-                initial={{ opacity: 0, x: -24 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -24, height: 0 }}
-                transition={{ duration: 0.25, type: 'spring', stiffness: 300, damping: 30 }}
-                whileHover={{ x: 4 }}
-                className={`queue-card ${isSelected ? 'selected' : ''}`}
-                style={{
-                  borderLeftColor: meta.color,
-                  boxShadow: isSelected ? `0 0 20px ${meta.glow}` : undefined,
-                }}
-                onClick={() => setSelectedIncident(incident)}
-              >
-                <div className="card-top">
-                  <span className="type-label" style={{ color: meta.color }}>
-                    {meta.icon} {incident.type}
-                  </span>
-                  <span className="time-ago">
-                    {incident.timestamp
-                      ? new Date(incident.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : 'Just now'}
-                  </span>
-                </div>
-                <div className="lga-label">📍 {incident.lga} LGA</div>
-                <div className="incident-card-meta">
-                  <span>Severity {incident.severity}/5</span>
-                  <span className="ai-conf">AI {Math.round(incident.priority_score * 10)}%</span>
-                </div>
-                <div className="priority-bar-container">
-                  <div
-                    className="priority-bar-fill"
-                    style={{
-                      width: `${(incident.priority_score / 10) * 100}%`,
-                      background: incident.priority_score > 8 ? '#C0392B' : incident.priority_score > 6 ? '#E67E22' : '#2E6BE6',
-                    }}
-                  />
-                </div>
-                <div className="card-bottom">
-                  <span className={`badge ${incident.priority_score > 7 ? 'danger' : incident.priority_score > 4 ? 'warn' : 'safe'}`}>
-                    Priority {incident.priority_score.toFixed(1)}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+              <div className="inc-meta">
+                <span style={{ color: isCritical ? 'var(--alert-red)' : 'var(--text-secondary)' }}>
+                  SEV: {incident.severity}/5
+                </span>
+                <span style={{ color: 'var(--ai-blue)' }}>
+                  CONF: {Math.round(incident.priority_score * 10)}%
+                </span>
+              </div>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
 
-        {incidents.length === 0 && (
-          <div className="queue-empty">
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-            <p>No active incidents</p>
-          </div>
-        )}
-      </div>
+      {incidents.length === 0 && (
+        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+          SYSTEM STATUS: STABLE<br/>NO ACTIVE INCIDENTS
+        </div>
+      )}
     </div>
   );
 }
