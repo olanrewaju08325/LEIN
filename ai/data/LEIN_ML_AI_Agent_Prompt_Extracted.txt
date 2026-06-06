@@ -1,0 +1,529 @@
+LEIN | ML/AI Engineer — Complete Agent Prompt | NacosCuab Hackathon ’26
+LEIN ML / AI Engineer — Complete Agent Prompt Lagos Emergency
+Intelligence Network · NacosCuab Hackathon ’26 Everything your AI coding
+agent needs to execute your role — start to finish. How to Use This
+Document This document IS the prompt for your AI coding agent (Claude
+Code, Cursor, Copilot Workspace, or any agentic coding tool). Each
+section maps to a task block. Feed the agent one task block at a time,
+in order. Every block contains: the exact goal, the file path to create
+or edit, the complete code to produce, and a verification gate before
+moving on. Do not skip gates — a broken gate means the next block will
+fail. Your role ML/AI Engineer — you own the entire AI pipeline and your
+share of setup Your repo path All AI code lives under ai/ in the project
+root Your branch feature/ai-pipeline — branch off main after Phase 0
+Merge policy PR to main after each Phase gate passes. Do not commit
+directly to main. Commit message feat(ai): — use this prefix on every
+commit Agent tool Claude Code recommended. Feed one TASK block per
+session.
+
+LEIN — ML/AI Engineer Agent Prompt Page 2 PHASE 0 — SETUP & ENVIRONMENT
+— ML/AI SLICE | Hour 0 – 2 Context for agent: You have just accepted a
+GitHub organisation invitation for NacosCuabHackathon26. The repo
+already exists. Your job in this phase is to clone it, create your
+working branch, set up the Python AI environment, create the ai/
+directory structure, write the requirements file, and make a skeleton
+commit so the repo shows activity from Hour 0. TASK 0.1 — CLONE & BRANCH
+# Run these commands in your terminal after accepting the GitHub invite
+git clone https://github.com/NacosCuabHackathon26/.git cd git checkout
+-b feature/ai-pipeline git push -u origin feature/ai-pipeline TASK 0.2 —
+CREATE AI DIRECTORY STRUCTURE Tell your agent to create this exact
+folder layout: ai/ ai/init.py ai/classifier.py # Component 1 — NLP
+Classifier ai/severity.py # Component 2 — Severity Scorer ai/router.py #
+Component 3 — Route Optimiser ai/forecaster.py # Component 4 — Incident
+Forecaster ai/pipeline.py # Orchestrator — wires all 4 together
+ai/models/ # Saved .joblib model files go here ai/data/ # Synthetic
+training data CSVs go here scripts/
+
+LEIN — ML/AI Engineer Agent Prompt Page 3 scripts/train_severity.py #
+Standalone training script scripts/train_forecaster.py
+scripts/generate_data.py # Synthetic data generator
+scripts/test_pipeline.py # Manual end-to-end test TASK 0.3 —
+REQUIREMENTS-AI.TXT Create requirements-ai.txt in the project root with
+exactly: scikit-learn==1.4.2 joblib==1.4.2 numpy==1.26.4 pandas==2.2.2
+anthropic==0.28.0 # For NLP classifier — Option A python-dotenv==1.0.1
+statsmodels==0.14.2 # For ARIMA forecaster httpx==0.27.0 # Async HTTP
+for classifier API calls pip install -r requirements-ai.txt TASK 0.4 —
+.ENV SETUP Create .env in project root (already in .gitignore — confirm
+this): ANTHROPIC_API_KEY=sk-ant-YOUR_KEY_HERE AI_MODE=api # options: api
+| offline CLASSIFIER_MODEL=claude-haiku-20240307 CRITICAL: Confirm .env
+is in .gitignore before the first commit. Exposing an API key to a
+public repo during a hackathon is a disqualification risk. Run: grep
+‘.env’ .gitignore — it must appear. TASK 0.5 — SKELETON COMMIT
+
+LEIN — ML/AI Engineer Agent Prompt Page 4 # Add placeholder content to
+each ai/*.py file so they are importable # Each file should contain at
+minimum: # “““LEIN AI Pipeline —”“” git add ai/ scripts/
+requirements-ai.txt git commit -m “feat(ai): scaffold AI pipeline
+directory structure” git push ■ CRITICAL Gate 0.A python -c ‘import
+sklearn, joblib, anthropic, pandas, numpy, statsmodels’ — zero errors ■
+CRITICAL Gate 0.B ai/ directory exists with all 6 .py files importable ■
+CRITICAL Gate 0.C .env exists locally, confirmed absent from git tracked
+files ■ CRITICAL Gate 0.D feature/ai-pipeline branch pushed and visible
+on GitHub
+
+LEIN — ML/AI Engineer Agent Prompt Page 5 PHASE 2 — AI PIPELINE BUILD |
+Hour 8 – 20 Context for agent: The backend engineer has finished
+Phase 1. All 8 API endpoints exist and return mock JSON. Your job now is
+to build the real AI behind them — four components in sequence. After
+each component you will slot it into the matching FastAPI endpoint by
+editing the backend engineer’s stub. Coordinate with them on the exact
+import path they expect. PHASE 2 — COMPONENT 1 — NLP EMERGENCY
+CLASSIFIER | Hour 8 – 12 Goal: Given a free-text emergency description
+(possibly in English or Pidgin), return a structured classification:
+emergency type, confidence score, and extracted keywords. FULL FILE:
+AI/CLASSIFIER.PY ““” LEIN AI Pipeline — Component 1: NLP Emergency
+Classifier Supports two modes via AI_MODE env var: api — calls Claude
+claude-haiku via Anthropic SDK (fast, accurate) offline — TF-IDF +
+LogisticRegression trained on synthetic data ““” import os, json, re
+from dotenv import load_dotenv load_dotenv() EMERGENCY_TYPES =
+[‘medical’, ‘fire’, ‘security’, ‘accident’, ‘other’] HIGH_RISK_KEYWORDS
+= [ ‘unconscious’, ‘not breathing’, ‘bleeding’, ‘stabbed’, ‘shot’,
+‘gun’, ‘fire’, ‘burning’, ‘trapped’, ‘collapsed’, ‘seizure’,
+
+LEIN — ML/AI Engineer Agent Prompt Page 6 ‘heart’, ‘stroke’, ‘faint’,
+‘dead’, ‘armed’, ‘robbery’, ‘explosion’ ] PIDGIN_MAP = { ‘im don fall’:
+‘person collapsed’, ‘e no dey breathe’: ‘not breathing’, ‘dem don
+shoot’: ‘shooting incident’, ‘fire don catch’: ‘building on fire’, ‘e
+don faint’: ‘person fainted’, ‘one kain accident’: ‘road accident’, }
+def normalize_pidgin(text: str) -> str: text = text.lower() for pidgin,
+english in PIDGIN_MAP.items(): text = text.replace(pidgin, english)
+return text def extract_keywords(text: str) -> list[str]: text_lower =
+text.lower() return [kw for kw in HIGH_RISK_KEYWORDS if kw in
+text_lower] # ■■ API Mode (Claude Haiku)
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ def
+classify_via_api(description: str) -> dict: import anthropic client =
+anthropic.Anthropic(api_key=os.getenv(‘ANTHROPIC_API_KEY’)) model =
+os.getenv(‘CLASSIFIER_MODEL’, ‘claude-haiku-20240307’) prompt = f’’’You
+are an emergency dispatch classifier for Lagos, Nigeria.
+
+LEIN — ML/AI Engineer Agent Prompt Page 7 Classify this emergency report
+into exactly one type. Types: medical, fire, security, accident, other
+Return ONLY valid JSON, no explanation: {{“type”: ““,”confidence”:
+<0.0-1.0>, “reasoning”: “<10 words>”}} Report: {description}’’’ msg =
+client.messages.create( model=model, max_tokens=120, messages=[{‘role’:
+‘user’, ‘content’: prompt}] ) raw = msg.content[0].text.strip() raw =
+re.sub(r’json|‘,’‘, raw).strip() result = json.loads(raw) if
+result[’type’] not in EMERGENCY_TYPES: result[’type’] = ’other’ return
+result # ■■ Offline Mode (TF-IDF)
+■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ _offline_model = None def
+_load_offline_model(): global _offline_model if _offline_model: return
+_offline_model import joblib path = os.path.join(os.path.dirname(file),
+‘models’, ‘classifier.joblib’) if not os.path.exists(path):
+_train_offline_model() _offline_model = joblib.load(path)
+
+LEIN — ML/AI Engineer Agent Prompt Page 8 return _offline_model def
+_train_offline_model(): from sklearn.pipeline import Pipeline from
+sklearn.feature_extraction.text import TfidfVectorizer from
+sklearn.linear_model import LogisticRegression import joblib, os
+EXAMPLES = [ (‘person collapsed not breathing’, ‘medical’), (‘chest pain
+heart attack’, ‘medical’), (‘unconscious on the floor’, ‘medical’),
+(‘seizure convulsing’, ‘medical’), (‘bleeding heavily from head’,
+‘medical’), (‘building on fire flames spreading’, ‘fire’), (‘gas
+explosion fire caught’, ‘fire’), (‘kitchen fire burning’, ‘fire’),
+(‘armed robbery in progress’, ‘security’), (‘gunshots heard multiple’,
+‘security’), (‘stabbing attack knife’, ‘security’), (‘car crash multiple
+injured’, ‘accident’), (‘road accident bus overturned’, ‘accident’),
+(‘motorcycle collision injured’, ‘accident’), (‘noise disturbance
+neighbour’, ‘other’), (‘lost child missing person’, ‘other’),] texts,
+labels = zip(*EXAMPLES)
+
+LEIN — ML/AI Engineer Agent Prompt Page 9 pipe = Pipeline([ (‘tfidf’,
+TfidfVectorizer(ngram_range=(1,2))), (‘clf’,
+LogisticRegression(max_iter=300))]) pipe.fit(texts, labels)
+os.makedirs(os.path.join(os.path.dirname(file), ‘models’),
+exist_ok=True) path = os.path.join(os.path.dirname(file), ‘models’,
+‘classifier.joblib’) joblib.dump(pipe, path) print(f’Offline classifier
+trained and saved to {path}‘) def classify_offline(description: str) ->
+dict: model = load_offline_model() proba =
+model.predict_proba([description])[0] classes = model.classes best_idx =
+proba.argmax() return {’type’: classes[best_idx], ‘confidence’:
+round(float(proba[best_idx]), 3), ‘reasoning’: ‘offline model’} # ■■
+Public API ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ def
+classify(description: str) -> dict: “““Main entry point. Returns
+classification dict.”“” normalized = normalize_pidgin(description)
+keywords = extract_keywords(normalized) mode = os.getenv(‘AI_MODE’,
+‘api’) try: if mode == ‘api’: result = classify_via_api(normalized)
+
+LEIN — ML/AI Engineer Agent Prompt Page 10 else: result =
+classify_offline(normalized) except Exception as e: print(f’Classifier
+fallback triggered: {e}‘) result = classify_offline(normalized)
+result[’keywords’] = keywords result[’raw_input’] = description return
+result ■ CRITICAL Gate 1.A python -c “from ai.classifier import
+classify; print(classify(‘person not breathing’))” — returns dict with
+type=’medical’ ■ CRITICAL Gate 1.B classify(‘fire don catch for
+building’) — Pidgin test, returns type=‘fire’ ■ CRITICAL Gate 1.C
+classify(‘noise from neighbour’) — returns type=‘other’, confidence <
+0.7 ■ TODO Commit git commit -m ‘feat(ai): NLP emergency classifier —
+API + offline modes’
+
+LEIN — ML/AI Engineer Agent Prompt Page 11 PHASE 2 — COMPONENT 2 —
+SEVERITY SCORER | Hour 12 – 15 Goal: Predict a priority score (1–10) for
+each incident using structured features. This score drives the dispatch
+queue — highest score appears first on the dispatcher dashboard. FULL
+FILE: SCRIPTS/GENERATE_SEVERITY_DATA.PY — RUN THIS FIRST TO GENERATE
+TRAINING DATA import pandas as pd, numpy as np, os np.random.seed(42) N
+= 500 TYPE_BASE =
+{‘medical’:8.5,‘fire’:8.0,‘accident’:7.5,‘security’:6.5,‘other’:3.0}
+types = np.random.choice(list(TYPE_BASE.keys()), N,
+p=[0.35,0.20,0.20,0.15,0.10]) hours = np.random.randint(0, 24, N) days =
+np.random.randint(0, 7, N) LGA_WEIGHTS =
+{‘ikeja’:0.9,‘surulere’:0.85,‘islandLG’:0.95,‘alimosho’:0.7,
+‘eti_osa’:0.8,‘kosofe’:0.75,‘mushin’:0.88,‘oshodi’:0.82} lgas =
+np.random.choice(list(LGA_WEIGHTS.keys()), N) lga_w =
+np.array([LGA_WEIGHTS[l] for l in lgas]) hints = np.random.randint(1, 6,
+N) kw_flags = np.random.randint(0, 5, N) peak = ((hours>=6)&(hours<=9))
+| ((hours>=16)&(hours<=20)) base_scores = np.array([TYPE_BASE[t] for t
+in types]) scores = (base_scores * 0.45 + lga_w * 1.5 + hints * 0.3 +
+kw_flags * 0.4 + peak.astype(float) * 0.8 + np.random.normal(0, 0.4, N))
+scores = np.clip(scores, 1, 10).round(2)
+
+LEIN — ML/AI Engineer Agent Prompt Page 12 type_enc =
+{‘medical’:1.0,‘fire’:0.9,‘accident’:0.8,‘security’:0.7,‘other’:0.3} df
+= pd.DataFrame({ ‘type_weight’: [type_enc[t] for t in types],
+‘hour_of_day’: hours, ‘day_of_week’: days, ‘lga_risk’: lga_w,
+‘severity_hint’: hints, ‘keyword_flags’: kw_flags, ‘is_peak_hour’:
+peak.astype(int), ‘score’: scores }) os.makedirs(‘ai/data’,
+exist_ok=True) df.to_csv(‘ai/data/severity_training.csv’, index=False)
+print(f’Generated {N} training examples. Score range:
+{scores.min():.1f}–{scores.max():.1f}‘) FULL FILE:
+SCRIPTS/TRAIN_SEVERITY.PY import pandas as pd, joblib, os from
+sklearn.ensemble import RandomForestRegressor from
+sklearn.model_selection import train_test_split from sklearn.metrics
+import mean_absolute_error df =
+pd.read_csv(’ai/data/severity_training.csv’) FEATURES =
+[‘type_weight’,‘hour_of_day’,‘day_of_week’,‘lga_risk’,
+‘severity_hint’,‘keyword_flags’,‘is_peak_hour’] X, y = df[FEATURES],
+df[‘score’] X_tr, X_te, y_tr, y_te = train_test_split(X, y,
+test_size=0.2, random_state=42) model =
+RandomForestRegressor(n_estimators=100, random_state=42) model.fit(X_tr,
+y_tr) mae = mean_absolute_error(y_te, model.predict(X_te))
+print(f’Severity model MAE: {mae:.3f} (target < 0.8)‘)
+os.makedirs(’ai/models’, exist_ok=True)
+
+LEIN — ML/AI Engineer Agent Prompt Page 13 joblib.dump({‘model’: model,
+‘features’: FEATURES}, ‘ai/models/severity.joblib’) print(‘Model saved
+to ai/models/severity.joblib’) FULL FILE: AI/SEVERITY.PY “““LEIN AI
+Pipeline — Component 2: Severity Scorer”“” import os, joblib, numpy as
+np TYPE_WEIGHTS =
+{‘medical’:1.0,‘fire’:0.9,‘accident’:0.8,‘security’:0.7,‘other’:0.3}
+LGA_WEIGHTS = {
+‘ikeja’:0.9,‘surulere’:0.85,‘island’:0.95,‘alimosho’:0.7,
+‘eti_osa’:0.8,‘kosofe’:0.75,‘mushin’:0.88,‘oshodi’:0.82, ‘default’:0.75
+} _model_cache = None def _load(): global _model_cache if _model_cache:
+return _model_cache path = os.path.join(os.path.dirname(file), ‘models’,
+‘severity.joblib’) _model_cache = joblib.load(path) return _model_cache
+def score(incident_type: str, hour: int, day: int, lga: str,
+severity_hint: int, keyword_flags: int) -> float: “““Returns priority
+score 1-10. Higher = more urgent.”“” saved = _load() model, features =
+saved[‘model’], saved[‘features’] is_peak = 1 if (6<=hour<=9) or
+(16<=hour<=20) else 0
+
+LEIN — ML/AI Engineer Agent Prompt Page 14 lga_risk =
+LGA_WEIGHTS.get(lga.lower(), LGA_WEIGHTS[‘default’]) type_w =
+TYPE_WEIGHTS.get(incident_type.lower(), 0.3) X = [[type_w, hour, day,
+lga_risk, severity_hint, keyword_flags, is_peak]] raw =
+model.predict(X)[0] # Safety fallback: high keyword count always scores
+high if keyword_flags >= 3: raw = max(raw, 8.0) return
+round(float(np.clip(raw, 1.0, 10.0)), 2) Training sequence for agent:
+(1) python scripts/generate_severity_data.py (2) python
+scripts/train_severity.py (3) Confirm MAE printed is below 0.8 (4)
+Confirm ai/models/severity.joblib exists ■ CRITICAL Gate 2.A python
+scripts/generate_severity_data.py — prints ‘500 training examples’ ■
+CRITICAL Gate 2.B python scripts/train_severity.py — prints MAE < 0.8 ■
+CRITICAL Gate 2.C python -c “from ai.severity import score;
+print(score(‘medical’,8,1,‘ikeja’,5,4))” — returns value > 8.0 ■
+CRITICAL Gate 2.D python -c “from ai.severity import score;
+print(score(‘other’,14,3,‘default’,1,0))” — returns value < 5.0 ■ TODO
+Commit git commit -m ‘feat(ai): severity scorer — RandomForest trained
+on 500 synthetic incidents’
+
+LEIN — ML/AI Engineer Agent Prompt Page 15 PHASE 2 — COMPONENT 3 — ROUTE
+OPTIMISER | Hour 15 – 18 Goal: Given an incident location (lat/lng) and
+a list of available responders, select the optimal responder and return
+estimated ETA in minutes. Uses Haversine distance + Lagos traffic
+weights. FULL FILE: AI/ROUTER.PY “““LEIN AI Pipeline — Component 3:
+Route Optimiser”“” import math from datetime import datetime # Lagos LGA
+traffic multipliers by hour bucket # 1.0 = free flow, 2.5 = heavy
+congestion TRAFFIC_PROFILE = { ‘ikeja’:
+[1.2,1.1,1.0,1.0,1.1,1.4,2.0,2.5,2.3,1.8,1.6,1.5,
+1.6,1.5,1.5,1.6,2.0,2.5,2.4,2.0,1.7,1.5,1.3,1.2], ‘surulere’:
+[1.1,1.0,1.0,1.0,1.1,1.3,1.8,2.3,2.1,1.7,1.5,1.4,
+1.5,1.4,1.4,1.5,1.9,2.3,2.2,1.9,1.6,1.4,1.2,1.1], ‘island’:
+[1.3,1.2,1.1,1.1,1.2,1.5,2.2,2.8,2.5,2.0,1.8,1.7,
+1.8,1.7,1.7,1.8,2.2,2.8,2.6,2.2,1.9,1.6,1.4,1.3], ‘default’:
+[1.2,1.1,1.0,1.0,1.1,1.4,1.9,2.3,2.1,1.7,1.5,1.4,
+1.5,1.4,1.4,1.5,1.9,2.3,2.1,1.8,1.5,1.3,1.2,1.1], } # Average speed in
+Lagos km/h (adjusted by traffic) BASE_SPEED_KMH = 40.0 def
+haversine(lat1, lng1, lat2, lng2) -> float: “““Returns distance in km
+between two coordinates.”“”
+
+LEIN — ML/AI Engineer Agent Prompt Page 16 R = 6371.0 dlat =
+math.radians(lat2 - lat1) dlng = math.radians(lng2 - lng1) a =
+(math.sin(dlat/2)**2 + math.cos(math.radians(lat1)) *
+math.cos(math.radians(lat2)) * math.sin(dlng/2)**2) return R * 2 *
+math.asin(math.sqrt(a)) def get_traffic_multiplier(lga: str, hour: int)
+-> float: profile = TRAFFIC_PROFILE.get(lga.lower(),
+TRAFFIC_PROFILE[‘default’]) return profile[hour % 24] def
+optimise(incident_lat: float, incident_lng: float, responders:
+list[dict], hour: int = None) -> dict: ““” responders: list of dicts
+with keys: id, lat, lng, lga, capacity_weight (0-1, higher=better)
+Returns: {responder_id, distance_km, eta_minutes, score} ““” if hour is
+None: hour = datetime.now().hour available = [r for r in responders if
+r.get(‘available’, True)] if not available: return {‘error’:
+‘no_available_responders’, ‘responder_id’: None} scored = [] for r in
+available:
+
+LEIN — ML/AI Engineer Agent Prompt Page 17 dist =
+haversine(incident_lat, incident_lng, r[‘lat’], r[‘lng’]) traffic =
+get_traffic_multiplier(r.get(‘lga’,‘default’), hour) capacity =
+r.get(‘capacity_weight’, 0.8) # Lower score = better (cost function)
+cost = (dist * traffic) / capacity speed = BASE_SPEED_KMH / traffic eta
+= round((dist / speed) * 60, 1) # minutes scored.append({‘id’: r[‘id’],
+‘dist’: dist, ‘eta’: eta, ‘cost’: cost, ‘traffic’: traffic}) best =
+min(scored, key=lambda x: x[‘cost’]) return { ‘responder_id’:
+best[‘id’], ‘distance_km’: round(best[‘dist’], 2), ‘eta_minutes’:
+best[‘eta’], ‘traffic_factor’:best[‘traffic’], ‘score’:
+round(best[‘cost’], 4) } ■ CRITICAL Gate 3.A from ai.router import
+optimise; result = optimise(6.52, 3.38, [{‘id’:‘R1’,‘lat’:
+6.53,‘lng’:3.37,‘lga’:‘ikeja’,‘capacity_weight’:0.9,‘available’:True}])
+— returns eta_minutes > 0 ■ CRITICAL Gate 3.B Test with all responders
+available=False — returns error: no_available_responders ■ CRITICAL Gate
+3.C Test two responders: one 0.5km away, one 5km away — picks the closer
+one
+
+LEIN — ML/AI Engineer Agent Prompt Page 18 ■ TODO Commit git commit -m
+‘feat(ai): route optimiser — Haversine + Lagos traffic weights’
+
+LEIN — ML/AI Engineer Agent Prompt Page 19 PHASE 2 — COMPONENT 4 —
+INCIDENT FORECASTER | Hour 18 – 20 Goal: Predict incident counts for the
+next 6 hours by type. Powers the analytics dashboard forecast table.
+Uses RandomForest with lag features trained on 90 days of synthetic data
+with realistic Lagos patterns. FULL FILE:
+SCRIPTS/GENERATE_FORECAST_DATA.PY import pandas as pd, numpy as np, os
+np.random.seed(0) hours = pd.date_range(‘2026-01-01’, periods=9024,
+freq=‘h’) rows = [] for dt in hours: h, d = dt.hour, dt.dayofweek
+is_peak = 1 if (6<=h<=9) or (16<=h<=20) else 0 is_weekend = 1 if d >= 5
+else 0 base = 3 + is_peak6 + is_weekend2 rows.append({ ‘hour’: h,
+‘day_of_week’: d, ‘is_peak’: is_peak, ‘is_weekend’: is_weekend,
+‘medical’: max(0, int(np.random.poisson(base0.4))), ‘fire’: max(0,
+int(np.random.poisson(base0.2))), ‘security’: max(0,
+int(np.random.poisson(base0.2))), ‘accident’: max(0,
+int(np.random.poisson(base0.15))), ‘other’: max(0,
+int(np.random.poisson(base0.05))), }) df = pd.DataFrame(rows)
+os.makedirs(‘ai/data’, exist_ok=True)
+
+LEIN — ML/AI Engineer Agent Prompt Page 20
+df.to_csv(‘ai/data/forecast_training.csv’, index=False)
+print(f’Generated {len(df)} hourly records’) FULL FILE:
+SCRIPTS/TRAIN_FORECASTER.PY import pandas as pd, joblib, os from
+sklearn.ensemble import RandomForestRegressor TYPES =
+[‘medical’,‘fire’,‘security’,‘accident’,‘other’] df =
+pd.read_csv(‘ai/data/forecast_training.csv’) FEATURES =
+[‘hour’,‘day_of_week’,‘is_peak’,‘is_weekend’] models = {} for t in
+TYPES: m = RandomForestRegressor(n_estimators=50, random_state=42)
+m.fit(df[FEATURES], df[t]) models[t] = m print(f’{t}: trained’)
+os.makedirs(‘ai/models’, exist_ok=True) joblib.dump({‘models’: models,
+‘features’: FEATURES}, ‘ai/models/forecaster.joblib’) print(‘Forecaster
+saved to ai/models/forecaster.joblib’) FULL FILE: AI/FORECASTER.PY
+“““LEIN AI Pipeline — Component 4: Incident Forecaster”“” import os,
+joblib from datetime import datetime, timedelta _cache = None def
+_load():
+
+LEIN — ML/AI Engineer Agent Prompt Page 21 global _cache if _cache:
+return _cache path =
+os.path.join(os.path.dirname(file),‘models’,‘forecaster.joblib’) _cache
+= joblib.load(path) return _cache def forecast(hours_ahead: int = 6) ->
+list[dict]: “““Returns predicted incident counts for next N hours.”“”
+saved = _load() models, features = saved[‘models’], saved[‘features’]
+now = datetime.now() results = [] for i in range(1, hours_ahead + 1): dt
+= now + timedelta(hours=i) h, d = dt.hour, dt.weekday() is_peak = 1 if
+(6<=h<=9) or (16<=h<=20) else 0 is_weekend = 1 if d >= 5 else 0 X = [[h,
+d, is_peak, is_weekend]] preds = {t: max(0,
+round(float(models[t].predict(X)[0]),1)) for t in models} preds[‘total’]
+= round(sum(preds.values()), 1) preds[‘hour’] = dt.strftime(‘%H:00’)
+preds[‘is_peak’] = bool(is_peak) results.append(preds) return results ■
+CRITICAL Gate 4.A python scripts/generate_forecast_data.py — prints
+‘2160 hourly records’
+
+LEIN — ML/AI Engineer Agent Prompt Page 22 ■ CRITICAL Gate 4.B python
+scripts/train_forecaster.py — prints trained for all 5 types ■ CRITICAL
+Gate 4.C from ai.forecaster import forecast; r = forecast(6) — returns
+list of 6 dicts each with medical/fire/security/accident/other/total
+keys ■ TODO Commit git commit -m ‘feat(ai): incident forecaster —
+per-type RandomForest on 90-day synthetic data’
+
+LEIN — ML/AI Engineer Agent Prompt Page 23 PHASE 2 — PIPELINE
+ORCHESTRATOR — WIRE ALL 4 COMPONENTS | Hour 20 – 22 Goal: Create a
+single entry point that the FastAPI backend calls. The backend engineer
+only needs to call one function: process_incident(). This file is your
+handoff to them. FULL FILE: AI/PIPELINE.PY ““” LEIN AI Pipeline —
+Orchestrator Single entry point for the FastAPI backend. Backend
+engineer: import process_incident and route_incident from here. ““” from
+datetime import datetime from ai.classifier import classify from
+ai.severity import score from ai.router import optimise from
+ai.forecaster import forecast def process_incident(description: str,
+lat: float, lng: float, lga: str, severity_hint: int) -> dict: ““” Full
+AI processing for a new incident report. Calls classifier then severity
+scorer. Returns enriched incident dict ready for DB insert. ““” now =
+datetime.now() # Step 1: Classify classification = classify(description)
+
+LEIN — ML/AI Engineer Agent Prompt Page 24 # Step 2: Score severity
+kw_count = len(classification.get(‘keywords’, [])) priority = score(
+incident_type = classification[‘type’], hour = now.hour, day =
+now.weekday(), lga = lga, severity_hint = severity_hint, keyword_flags =
+kw_count ) return { ‘ai_type’: classification[‘type’], ‘ai_confidence’:
+classification[‘confidence’], ‘ai_keywords’: classification[‘keywords’],
+‘ai_priority’: priority, ‘ai_reasoning’:
+classification.get(‘reasoning’,’’), } def route_incident(incident_lat:
+float, incident_lng: float, responders: list[dict]) -> dict: “““Wrapper
+around route optimiser. Backend calls this for /assign.”“” return
+optimise(incident_lat, incident_lng, responders) def
+get_forecast(hours_ahead: int = 6) -> list[dict]: “““Wrapper for
+forecaster. Backend calls this for /forecast.”“” return
+forecast(hours_ahead) BACKEND INTEGRATION INSTRUCTIONS — HAND THIS TO
+YOUR BACKEND ENGINEER
+
+LEIN — ML/AI Engineer Agent Prompt Page 25 In POST /classify endpoint:
+Replace mock with: from ai.pipeline import process_incident ai_result =
+process_incident(incident.description, incident.lat, incident.lng,
+incident.lga, incident.severity_hint) Update incident record with
+ai_result fields. In POST /assign endpoint: Replace mock ETA with: from
+ai.pipeline import route_incident route = route_incident(incident.lat,
+incident.lng, available_responders) In GET /forecast endpoint: Replace
+stub with: from ai.pipeline import get_forecast return
+get_forecast(hours_ahead=6) ■ CRITICAL Gate P.A python
+scripts/test_pipeline.py (create this: calls process_incident with a
+sample description) — returns dict with ai_type, ai_priority,
+ai_confidence ■ CRITICAL Gate P.B ai_priority > 8 when description
+contains ‘unconscious not breathing’ — life threat scores high ■
+CRITICAL Gate P.C ai_priority < 5 when description is ‘noise from
+neighbours at night’ ■ TODO Commit git commit -m ‘feat(ai): pipeline
+orchestrator — wires all 4 AI components’ ■ TODO PR Open pull request:
+feature/ai-pipeline -> main. Title: ‘feat: complete AI pipeline — 4
+components’
+
+LEIN — ML/AI Engineer Agent Prompt Page 26 PHASE 4 — INTEGRATION TESTING
+— ML/AI SLICE | Hour 28 – 36 Goal: Verify the full AI pipeline works
+end-to-end through the live API, not just in isolation. Run these tests
+against the running FastAPI server. FULL FILE: SCRIPTS/TEST_PIPELINE.PY
+— RUN THIS AGAINST THE LIVE SERVER import httpx, json BASE =
+‘http://localhost:8000’ TEST_CASES = [ # (description, expected_type,
+min_priority) (‘Person unconscious not breathing on the floor’,
+‘medical’, 8.0), (‘Building on fire flames spreading to next house’,
+‘fire’, 7.5), (‘Armed robbery in progress at the shop’, ‘security’,
+6.5), (‘Car accident multiple people injured on expressway’, ‘accident’,
+7.0), (‘Noise disturbance from party next door’, ‘other’, 1.0), (‘Im don
+fall e no dey breathe’, ‘medical’, 7.5), # Pidgin (‘Fire don catch for
+building’, ‘fire’, 7.0), # Pidgin (‘Chest pain heart attack symptoms’,
+‘medical’, 8.5), (‘Gunshots heard multiple times’, ‘security’, 7.0),
+(‘Child missing since morning’, ‘other’, 2.0),] passed = failed = 0 for
+desc, exp_type, min_pri in TEST_CASES: # Step 1: report r1 =
+httpx.post(f’{BASE}/report’, json={ ‘description’: desc, ‘lat’: 6.52,
+‘lng’: 3.38,
+
+LEIN — ML/AI Engineer Agent Prompt Page 27 ‘severity_hint’: 3, ‘lga’:
+‘ikeja’ }) inc_id = r1.json()[‘incident_id’] # Step 2: classify r2 =
+httpx.post(f’{BASE}/classify’, json={‘incident_id’: inc_id}) result =
+r2.json() ai_type = result.get(‘ai_type’, ’‘) ai_pri =
+result.get(’ai_priority’, 0) ok_type = ai_type == exp_type ok_pri =
+ai_pri >= min_pri status = ‘PASS’ if (ok_type and ok_pri) else ‘FAIL’ if
+status == ‘PASS’: passed += 1 else: failed += 1 print(f’{status} |
+{desc[:45]:<45} | got={ai_type}({ai_pri}) exp={exp_type}({min_pri})‘)
+print(f’: {passed}/10 passed, {failed} failed’) assert failed == 0,
+f’PIPELINE TEST FAILED: {failed} cases broken’ ■ CRITICAL Gate 4.A
+python scripts/test_pipeline.py — prints 10/10 passed ■ CRITICAL Gate
+4.B GET /forecast returns list of 6 dicts with all type keys present ■
+CRITICAL Gate 4.C POST /classify response time under 500ms (measure with
+httpx elapsed) ■ CRITICAL Gate 4.D Offline mode test: set
+AI_MODE=offline in .env, re-run test suite — still passes 8+/10 ■ TODO
+Commit git commit -m ‘test(ai): 10-case integration test suite — all
+passing’
+
+LEIN — ML/AI Engineer Agent Prompt Page 28 PHASE 5 — DOCUMENTATION — AI
+SECTION OF README | Hour 40 – 44 Goal: Write the ‘How AI Powers LEIN’
+section of the README. This is what judges read to score AI Integration
+(20 pts). Paste this block verbatim into README.md under the AI section
+heading. README CONTENT — COPY EXACTLY INTO README.MD ## How AI Powers
+LEIN LEIN integrates four distinct AI components that work in sequence
+for every emergency reported: ### 1. NLP Emergency Classifier
+(ai/classifier.py) - What: Classifies free-text descriptions into
+emergency types (medical, fire, security, accident, other) - How:
+Zero-shot classification via Claude Haiku API with structured prompting.
+Offline fallback: TF-IDF + Logistic Regression. - Lagos-specific: Pidgin
+normalisation layer handles common Lagos emergency phrases before
+classification. - Output: {type, confidence, keywords, raw_input} ### 2.
+Severity Scorer (ai/severity.py) - What: Predicts priority score 1-10 to
+rank the dispatch queue. - How: RandomForestRegressor trained on 500
+synthetic incidents. Features: incident type, hour of day, LGA risk
+weight, citizen hint, keyword flags, peak-hour indicator. - Output:
+Float 1.0-10.0 (higher = more urgent) ### 3. Route Optimiser
+(ai/router.py) - What: Selects optimal responder and estimates ETA.
+
+LEIN — ML/AI Engineer Agent Prompt Page 29 - How: Haversine distance +
+per-LGA 24-hour traffic profiles. Cost function: distance *
+traffic_weight / capacity_weight. - Output:
+{responder_id, distance_km, eta_minutes, traffic_factor} ### 4. Incident
+Forecaster (ai/forecaster.py) - What: Predicts incident counts for next
+6 hours by type. - How: Five RandomForest models (one per type) trained
+on 90 days of synthetic hourly data with Lagos rush-hour and weekend
+patterns. - Output: List of 6 hourly dicts with per-type predicted
+counts. ### AI Pipeline Entry Point All four components are orchestrated
+through ai/pipeline.py. The FastAPI backend calls three functions: -
+process_incident() — classifier + severity scorer - route_incident() —
+route optimiser - get_forecast() — incident forecaster PHASE 5 — DEMO
+DAY — YOUR 60-SECOND SCRIPT | June 9, 2026 This is the most important
+thing you rehearse. The demo is the product. Practice this script until
+you can do it in under 60 seconds without looking at notes. Second 0 –
+10 Open the Citizen Interface on your phone browser. Say: ‘A 45-year-old
+man has collapsed and is not breathing in Ikeja.’ Type it into the
+report field. Hit Submit. Second 10 – 20 Show the AI classification
+result appearing: type=MEDICAL, confidence=0.97,
+keywords=[‘unconscious’,‘not breathing’], priority=9.4/10. Say: ‘LEIN’s
+NLP classifier identifies this instantly as a critical medical
+emergency.’
+
+LEIN — ML/AI Engineer Agent Prompt Page 30 Second 20 – 35 Switch to the
+Dispatch Dashboard. Show the incident at the TOP of the queue in red.
+Say: ‘The severity scorer ranked this 9.4 — it’s first in the queue
+ahead of everything else.’ Second 35 – 48 Click the incident. Show the
+map highlighting the nearest hospital (Lagos Island General) and the
+closest available ambulance unit 1.2km away with ETA 4 minutes. Say:
+‘The route optimiser factors in current Ikeja traffic and picks the
+fastest unit.’ Second 48 – 58 Click the Analytics tab. Point to the
+forecast table showing a spike predicted in 2 hours. Say: ‘The
+forecaster predicted this rush-hour spike — dispatchers can pre-position
+units.’ Second 58 – 60 Say: ‘LEIN — built for Lagos, scalable to every
+Nigerian city. Four AI systems. 48 hours. One life saved.’
+
+LEIN — ML/AI Engineer Agent Prompt Page 31 Master Checklist — ML/AI
+Engineer Run through this top-to-bottom before submission window opens
+at 11:59 PM June 7. ■ TODO Env requirements-ai.txt installs clean. .env
+present locally. .env absent from git. ■ TODO Branch feature/ai-pipeline
+merged to main via PR. No uncommitted changes. ■ TODO Classifier
+classify(‘person not breathing’) returns type=‘medical’, confidence >
+0.85 ■ TODO Pidgin classify(‘fire don catch’) returns type=‘fire’ ■ TODO
+Offline fallback AI_MODE=offline still classifies correctly for all 5
+types ■ TODO Severity model ai/models/severity.joblib exists. MAE < 0.8.
+■ TODO High priority score(‘medical’, 8, 1, ‘ikeja’, 5, 4) returns > 8.5
+■ TODO Low priority score(‘other’, 14, 2, ‘default’, 1, 0) returns < 5.0
+■ TODO Router optimise() picks closer responder when two options given ■
+TODO No responders optimise() returns error dict gracefully when all
+busy ■ TODO Forecaster forecast(6) returns list of 6 dicts with all 5
+type keys ■ TODO Forecaster model ai/models/forecaster.joblib exists ■
+TODO Pipeline process_incident() returns dict with all 5 ai_ keys ■ TODO
+Integration python scripts/test_pipeline.py against live server — 10/10
+pass
+
+LEIN — ML/AI Engineer Agent Prompt Page 32 ■ TODO Speed POST /classify
+responds in under 500ms ■ TODO API wired Backend /classify calls
+process_incident(), not stub ■ TODO Forecast wired Backend /forecast
+calls get_forecast(), not stub ■ TODO Assign wired Backend /assign calls
+route_incident(), not stub ■ TODO README ‘How AI Powers LEIN’ section in
+README.md — all 4 components documented ■ CRITICAL Demo cached Last 10
+classification results cached. Demo works if API is down. ■ CRITICAL
+Demo rehearsed 60-second script practiced at least twice end-to-end ■
+CRITICAL Submission alarm 11:45 PM alarm set for June 7. Repo URL saved.
+Form link bookmarked. You own the thing that wins this hackathon. Four
+AI components. Offline fallback. Integration tests. Clean documentation.
+Ship all of it and the team wins. Built for Lagos. Scalable to every
+Nigerian city.
