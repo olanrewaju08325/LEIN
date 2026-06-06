@@ -1,9 +1,9 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { ShieldAlert, Activity, LayoutDashboard, LineChart } from 'lucide-react';
+import { ShieldAlert, Activity, LayoutDashboard, LineChart, Moon, Sun } from 'lucide-react';
 
-export default function Navbar() {
+export default function Navbar({ toggleTheme, isLightMode }) {
   const [time, setTime] = useState('');
   const location = useLocation();
 
@@ -56,9 +56,14 @@ export default function Navbar() {
         </div>
 
         <div className="navbar-status">
+          <button className="theme-toggle-btn" onClick={toggleTheme} aria-label="Toggle Theme">
+            {isLightMode ? <Moon size={18} /> : <Sun size={18} />}
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+            <div className="status-dot" />
+            <span style={{ color: 'var(--safe-green)' }}>SYS.OP</span>
+          </div>
           <span className="navbar-time">{time}</span>
-          <div className="status-dot" />
-          <span style={{ color: 'var(--safe-green)' }}>SYS.OP</span>
         </div>
       </motion.nav>
     </div>

@@ -5,11 +5,22 @@ import ReportPage from './pages/ReportPage';
 import DashboardPage from './pages/DashboardPage';
 import AnalyticsPage from './pages/AnalyticsPage';
 import LoadingScreen from './components/LoadingScreen';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [isLightMode, setIsLightMode] = useState(false);
+
+  useEffect(() => {
+    if (isLightMode) {
+      document.body.classList.add('light-mode');
+    } else {
+      document.body.classList.remove('light-mode');
+    }
+  }, [isLightMode]);
+
+  const toggleTheme = () => setIsLightMode(!isLightMode);
 
   if (loading) {
     return <LoadingScreen onComplete={() => setLoading(false)} />;
@@ -17,7 +28,7 @@ function App() {
 
   return (
     <Router>
-      <Navbar />
+      <Navbar toggleTheme={toggleTheme} isLightMode={isLightMode} />
       <div className="app-content">
         <Routes>
           <Route path="/" element={<LandingPage />} />

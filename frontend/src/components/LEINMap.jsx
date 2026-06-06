@@ -36,6 +36,14 @@ function MapAnimator() {
 }
 
 export default function LEINMap({ incidents = [], hospitals = [], responders = [], setSelectedIncident }) {
+  useEffect(() => {
+    // Stagger drop-in animation for map elements
+    gsap.fromTo('.leaflet-marker-icon', 
+      { y: -50, opacity: 0 }, 
+      { y: 0, opacity: 1, duration: 0.6, stagger: 0.05, ease: 'bounce.out', delay: 0.5 }
+    );
+  }, [incidents, hospitals, responders]);
+
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <div style={{ position: 'absolute', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 999, background: 'rgba(2,8,23,0.8)', padding: '8px 16px', borderRadius: 24, border: '1px solid rgba(255,255,255,0.1)', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', display: 'flex', alignItems: 'center', gap: 8, backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}>
@@ -47,10 +55,10 @@ export default function LEINMap({ incidents = [], hospitals = [], responders = [
         <MapAnimator />
 
         {/* Prediction Hotspots */}
-        <Circle center={[6.6018, 3.3515]} radius={1500} pathOptions={{ color: 'var(--alert-red)', fillColor: 'var(--alert-red)', fillOpacity: 0.2, stroke: false }}>
+        <Circle center={[6.6018, 3.3515]} radius={1500} pathOptions={{ className: 'pulsing-zone', color: 'var(--alert-red)', fillColor: 'var(--alert-red)', stroke: false }}>
           <Popup>Predicted Hotspot: Ikeja ↑</Popup>
         </Circle>
-        <Circle center={[6.4698, 3.5852]} radius={2000} pathOptions={{ color: 'var(--alert-red)', fillColor: 'var(--alert-red)', fillOpacity: 0.15, stroke: false }}>
+        <Circle center={[6.4698, 3.5852]} radius={2000} pathOptions={{ className: 'pulsing-zone', color: 'var(--alert-red)', fillColor: 'var(--alert-red)', stroke: false }}>
           <Popup>Predicted Hotspot: Lekki ↑</Popup>
         </Circle>
 
