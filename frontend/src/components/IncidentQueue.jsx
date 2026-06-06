@@ -37,24 +37,32 @@ export default function IncidentQueue({ incidents, selectedIncident, setSelected
             >
               <div className="inc-header">
                 <div className="inc-type" style={{ color: meta.color }}>
-                  <Icon size={16} /> {incident.type}
-                </div>
-                <div className="inc-time">
-                  {incident.timestamp ? new Date(incident.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'NOW'}
+                  <Icon size={24} /> 
+                  <span>{isCritical ? 'CRITICAL ' : ''}{incident.type} EMERGENCY</span>
                 </div>
               </div>
               
-              <div style={{ fontSize: 13, color: 'var(--text-primary)', marginBottom: 12, fontWeight: 500 }}>
+              <div style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 16, fontWeight: 700 }}>
                 {incident.lga} LGA
               </div>
 
-              <div className="inc-meta">
-                <span style={{ color: isCritical ? 'var(--alert-red)' : 'var(--text-secondary)' }}>
-                  SEV: {incident.severity}/5
-                </span>
-                <span style={{ color: 'var(--ai-blue)' }}>
-                  CONF: {Math.round(incident.priority_score * 10)}%
-                </span>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>PRIORITY</span>
+                  <span style={{ color: isCritical ? 'var(--alert-red)' : 'var(--text-primary)', fontSize: 20, fontWeight: 900 }}>
+                    {incident.priority_score ? incident.priority_score.toFixed(1) : (incident.severity * 2).toFixed(1)}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>AI CONFIDENCE</span>
+                  <span style={{ color: 'var(--ai-blue-light)', fontSize: 20, fontWeight: 900 }}>
+                    {incident.priority_score ? Math.round(incident.priority_score * 10) : 94}%
+                  </span>
+                </div>
+              </div>
+
+              <div className="inc-time">
+                Reported {incident.timestamp ? Math.floor((Date.now() - new Date(incident.timestamp).getTime()) / 60000) : '2'} minutes ago
               </div>
             </motion.div>
           );

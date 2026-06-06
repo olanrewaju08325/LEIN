@@ -6,15 +6,15 @@ export default function HourlyTrendChart({ data }) {
   return (
     <ResponsiveContainer width="100%" height={260}>
       <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-        <XAxis dataKey="hour" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
-        <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+        <XAxis dataKey="hour" stroke="var(--text-muted)" fontSize={14} fontWeight={600} tickLine={false} axisLine={false} />
+        <YAxis stroke="var(--text-muted)" fontSize={14} fontWeight={600} tickLine={false} axisLine={false} />
         <Tooltip 
-          contentStyle={{ background: '#000', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: '#fff' }}
+          contentStyle={{ background: 'var(--bg-secondary)', border: '2px solid var(--border-bright)', borderRadius: 12, fontSize: 16, fontWeight: 700, color: '#fff' }}
         />
-        <Line type="monotone" dataKey="medical" stroke="var(--med-blue)" strokeWidth={2} dot={false} isAnimationActive={true} animationDuration={2000} />
-        <Line type="monotone" dataKey="fire" stroke="var(--alert-red)" strokeWidth={2} dot={false} isAnimationActive={true} animationDuration={2000} />
-        <Line type="monotone" dataKey="security" stroke="var(--premium-gold)" strokeWidth={2} dot={false} isAnimationActive={true} animationDuration={2000} />
-        <Line type="monotone" dataKey="accident" stroke="var(--warn-amber)" strokeWidth={2} dot={false} isAnimationActive={true} animationDuration={2000} />
+        <Line type="monotone" dataKey="medical" stroke="var(--med-blue)" strokeWidth={4} dot={false} isAnimationActive={true} animationDuration={2000} />
+        <Line type="monotone" dataKey="fire" stroke="var(--alert-red)" strokeWidth={4} dot={false} isAnimationActive={true} animationDuration={2000} />
+        <Line type="monotone" dataKey="security" stroke="var(--premium-gold)" strokeWidth={4} dot={false} isAnimationActive={true} animationDuration={2000} />
+        <Line type="monotone" dataKey="accident" stroke="var(--warn-amber)" strokeWidth={4} dot={false} isAnimationActive={true} animationDuration={2000} />
       </LineChart>
     </ResponsiveContainer>
   );

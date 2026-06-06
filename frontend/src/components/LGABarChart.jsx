@@ -16,11 +16,11 @@ export default function LGABarChart({ data }) {
             <stop offset="95%" stopColor="var(--alert-red)" stopOpacity={0.1}/>
           </linearGradient>
         </defs>
-        <XAxis dataKey="lga" stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
-        <YAxis stroke="var(--text-muted)" fontSize={10} tickLine={false} axisLine={false} />
+        <XAxis dataKey="lga" stroke="var(--text-muted)" fontSize={14} fontWeight={600} tickLine={false} axisLine={false} />
+        <YAxis stroke="var(--text-muted)" fontSize={14} fontWeight={600} tickLine={false} axisLine={false} />
         <Tooltip 
           cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-          contentStyle={{ background: '#000', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: '#fff' }}
+          contentStyle={{ background: 'var(--bg-secondary)', border: '2px solid var(--border-bright)', borderRadius: 12, fontSize: 16, fontWeight: 700, color: '#fff' }}
         />
         <Bar dataKey="count" radius={[4, 4, 0, 0]} isAnimationActive={true} animationDuration={1500} animationEasing="ease-out">
           {data.map((entry, index) => (
