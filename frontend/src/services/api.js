@@ -7,12 +7,9 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const protectedPostPaths = ['/incidents', '/assign', '/resolve'];
-  const method = String(config.method || '').toLowerCase();
-  const url = String(config.url || '').split('?')[0];
   const token = getToken();
 
-  if (method === 'post' && protectedPostPaths.includes(url) && token) {
+  if (token) {
     config.headers = config.headers || {};
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -29,5 +26,20 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+export async function getMyIncidents() {
+  const response = await api.get('/incidents/my');
+  return response.data;
+}
+
+export async function getIncidentStatus(incidentId) {
+  const response = await api.get(`/incidents/${incidentId}/status`);
+  return response.data;
+}
+
+export async function trackIncident(incidentId) {
+  const response = await api.post(`/incidents/${incidentId}/track`);
+  return response.data;
+}
 
 export default api;
