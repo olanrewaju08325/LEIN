@@ -8,6 +8,8 @@ import LandingPage from './pages/LandingPage';
 import ReportPage from './pages/ReportPage';
 import DashboardPage from './pages/DashboardPage';
 import AnalyticsPage from './pages/AnalyticsPage';
+import CitizenDashboard from './pages/CitizenDashboard';
+import { isAuthenticated, getUser } from './services/auth';
 import LoadingScreen from './components/LoadingScreen';
 import { useState, useEffect } from 'react';
 import './index.css';
@@ -25,7 +27,22 @@ function AppRoutes({ toggleTheme, isLightMode }) {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-otp" element={<OTPPage />} />
-          <Route path="/report" element={<ReportPage />} />
+          <Route path="/report" element={
+            isAuthenticated() ? (
+              getUser()?.role === 'citizen' ? (
+                <Navigate to="/my-incidents" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <ReportPage />
+            )
+          } />
+          <Route path="/my-incidents" element={
+            <ProtectedRoute>
+              <CitizenDashboard />
+            </ProtectedRoute>
+          } />
           <Route path="/intake" element={<Navigate to="/report" replace />} />
           <Route
             path="/dashboard"

@@ -9,7 +9,7 @@ const TYPE_META = {
   Accident: { icon: CarFront,    color: 'var(--warn-amber)' },
 };
 
-export default function IncidentQueue({ incidents, selectedId, onSelectIncident }) {
+export default function IncidentQueue({ incidents, selectedId, onSelectIncident, onDispatchClick, dispatchingId }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -96,25 +96,40 @@ export default function IncidentQueue({ incidents, selectedId, onSelectIncident 
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Reported {formatMinutesAgo(incident.timestamp)}</div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onSelectIncident?.(incident);
-                  }}
-                  style={{
-                    border: 'none',
-                    borderRadius: 999,
-                    padding: '8px 14px',
-                    background: 'var(--accent-blue)',
-                    color: '#fff',
-                    cursor: 'pointer',
-                    fontSize: 12,
-                    fontWeight: 700,
-                  }}
-                >
-                  View Details
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {incident.status === 'active' ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDispatchClick?.(incident); }}
+                      style={{ background: '#10B981', color: '#fff', fontWeight: 800, fontSize: 13, padding: '8px 16px', borderRadius: 8, border: 'none', cursor: 'pointer' }}
+                    >
+                      ⚡ DISPATCH
+                    </button>
+                  ) : incident.status === 'assigned' ? (
+                    <div style={{ background: '#3B82F6', color: '#fff', padding: '8px 12px', borderRadius: 8, fontWeight: 800 }}>✅ DISPATCHED</div>
+                  ) : (
+                    <div style={{ background: '#94A3B8', color: '#fff', padding: '8px 12px', borderRadius: 8, fontWeight: 800 }}>RESOLVED</div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onSelectIncident?.(incident);
+                    }}
+                    style={{
+                      border: 'none',
+                      borderRadius: 999,
+                      padding: '8px 14px',
+                      background: 'var(--accent-blue)',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    View Details
+                  </button>
+                </div>
               </div>
             </motion.div>
           );

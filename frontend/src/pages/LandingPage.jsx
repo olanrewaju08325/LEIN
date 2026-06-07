@@ -248,28 +248,6 @@ export default function LandingPage() {
           position: 'relative',
         }}
       >
-        <nav style={{ ...sectionWrap, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', zIndex: 2 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <ShieldAlert size={34} color={colors.gold} />
-            <span style={{ color: colors.text, fontSize: 24, fontWeight: 900 }}>LEIN</span>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <button
-              onClick={() => navigate('/login')}
-              style={{ ...buttonBase, height: 44, padding: '0 20px', background: 'transparent', borderColor: 'rgba(255,255,255,0.55)' }}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => navigate('/register')}
-              style={{ ...buttonBase, height: 44, padding: '0 22px', background: colors.blue, borderColor: colors.blue }}
-            >
-              Create Account
-            </button>
-          </div>
-        </nav>
-
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}

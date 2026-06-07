@@ -33,11 +33,50 @@ export default function DashboardPage() {
   const [hospitals, setHospitals] = useState([]);
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dispatching, setDispatching] = useState(null);
+  const [suggestion, setSuggestion] = useState(null);
+  const [showDispatchModal, setShowDispatchModal] = useState(false);
+  const [activeIncident, setActiveIncident] = useState(null);
   
   const dashboardRef = useRef(null);
 
   const handleSelectIncident = (incident) => {
     setSelectedIncident(incident);
+  };
+
+  const fetchSuggestion = async (incidentId) => {
+    const token = sessionStorage.getItem('access_token');
+    try {
+      const res = await fetch(`http://localhost:8000/incidents/${incidentId}/suggestion`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json().catch(() => ({}));
+      setSuggestion(data);
+    } catch (e) {
+      setSuggestion(null);
+    }
+  };
+
+  const confirmDispatch = async (incidentId, responderId) => {
+    setDispatching(incidentId);
+    const token = sessionStorage.getItem('access_token');
+    try {
+      const res = await fetch(`http://localhost:8000/incidents/${incidentId}/dispatch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ confirmed_responder_id: responderId })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        setShowDispatchModal(false);
+        setSuggestion(null);
+        fetchData();
+      } else {
+        alert(data.error || 'Dispatch failed');
+      }
+    } catch (e) {
+      alert('Network error dispatching');
+    } finally {
+      setDispatching(null);
+    }
   };
 
   const handleDispatchSuccess = (incidentId) => {
@@ -171,12 +210,14 @@ export default function DashboardPage() {
           <div className="dash-panel-header">
             <span>LIVE INCIDENT QUEUE</span>
           </div>
-          <div className="dash-panel-content" style={{ overflowY: 'auto' }}>
+            <div className="dash-panel-content" style={{ overflowY: 'auto' }}>
             {!loading ? (
               <IncidentQueue 
                 incidents={incidents}
                 selectedId={selectedIncident?.id}
                 onSelectIncident={handleSelectIncident}
+                onDispatchClick={(incident) => { setActiveIncident(incident); fetchSuggestion(incident.id); setShowDispatchModal(true); }}
+                dispatchingId={dispatching}
               />
             ) : (
               <div style={{ color: 'var(--text-muted)' }}>Loading intelligence...</div>

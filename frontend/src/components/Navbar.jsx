@@ -45,11 +45,9 @@ export default function Navbar({ toggleTheme, isLightMode }) {
     if (authed) validate();
   }, [authed]);
 
-  const links = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/analytics', label: 'Analytics', icon: LineChart },
-    { to: '/report', label: 'Report', icon: Activity },
-  ];
+  const isAuthed = authed && user;
+  const isDispatcher = isAuthed && user?.role === 'dispatcher';
+  const isCitizen = isAuthed && user?.role === 'citizen';
 
   const handleLogout = () => {
     logout();
@@ -85,42 +83,26 @@ export default function Navbar({ toggleTheme, isLightMode }) {
         </NavLink>
 
         <div className="navbar-links" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {links.map(({ to, label, icon: Icon }) => {
-            const isActive = location.pathname === to;
-            return (
-              <NavLink
-                key={to}
-                to={to}
-                className={`navbar-link ${isActive ? 'active' : ''}`}
-                style={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  height: 40,
-                  padding: '0 14px',
-                  borderRadius: 999,
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                  textDecoration: 'none',
-                  fontSize: 14,
-                  fontWeight: 800,
-                  background: isActive ? 'var(--bg-card)' : 'transparent',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <Icon size={15} />
-                {label}
-                {isActive && (
-                  <motion.div
-                    layoutId="navIndicator"
-                    className="nav-active-indicator"
-                    transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    style={{ position: 'absolute', left: 16, right: 16, bottom: 4, height: 2, borderRadius: 999, background: 'var(--ai-blue)' }}
-                  />
-                )}
+          {isDispatcher ? (
+            <>
+              <NavLink to="/dashboard" className={`navbar-link ${location.pathname === '/dashboard' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+                <LayoutDashboard size={15} /> Dashboard
               </NavLink>
-            );
-          })}
+              <NavLink to="/analytics" className={`navbar-link ${location.pathname === '/analytics' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+                <LineChart size={15} /> Analytics
+              </NavLink>
+            </>
+          ) : isCitizen ? (
+            <>
+              <NavLink to="/my-incidents" className={`navbar-link ${location.pathname === '/my-incidents' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+                <Activity size={15} /> My Incidents
+              </NavLink>
+            </>
+          ) : (
+            <NavLink to="/report" className={`navbar-link ${location.pathname === '/report' ? 'active' : ''}`} style={{ textDecoration: 'none' }}>
+              <Activity size={15} /> Report
+            </NavLink>
+          )}
         </div>
 
         <div className="navbar-status" style={{ display: 'flex', alignItems: 'center', gap: 12, color: 'var(--text-muted)', fontSize: 13, fontWeight: 800 }}>
@@ -155,12 +137,20 @@ export default function Navbar({ toggleTheme, isLightMode }) {
               <LogOut size={18} />
             </button>
           ) : (
-            <button
-              onClick={() => navigate('/login')}
-              style={{ height: 38, padding: '0 16px', borderRadius: 999, border: '1px solid var(--ai-blue)', background: 'var(--ai-blue)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 900, cursor: 'pointer' }}
-            >
-              Login
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => navigate('/login')}
+                style={{ height: 38, padding: '0 16px', borderRadius: 999, border: '1px solid var(--ai-blue)', background: 'var(--ai-blue)', color: 'var(--text-primary)', fontSize: 13, fontWeight: 900, cursor: 'pointer' }}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => navigate('/register')}
+                style={{ height: 38, padding: '0 16px', borderRadius: 999, border: '1px solid var(--border-bright)', background: 'transparent', color: 'var(--text-primary)', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                Register
+              </button>
+            </div>
           )}
         </div>
       </motion.nav>

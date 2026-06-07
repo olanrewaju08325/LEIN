@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict, Any
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -136,3 +136,18 @@ class VerifyOTPRequest(BaseModel):
 
 class ResendOTPRequest(BaseModel):
     email: EmailStr
+
+
+class DispatchRequest(BaseModel):
+    confirmed_responder_id: Optional[int] = None
+    notes: Optional[str] = ""
+
+
+class DispatchResponse(BaseModel):
+    success: bool
+    incident_id: int
+    dispatched_to: Dict[str, Any]
+    nearest_hospital: Dict[str, Any]
+    dispatcher_notes: Optional[str] = None
+    dispatched_at: Optional[str] = None
+    message: Optional[str] = None
