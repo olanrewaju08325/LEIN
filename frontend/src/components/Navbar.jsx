@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Activity, LayoutDashboard, LineChart, LogOut, Moon, ShieldAlert, Sun } from 'lucide-react';
-import { getUser, isAuthenticated, logout } from '../services/auth';
+import { getUser, isAuthenticated, logout, getToken } from '../services/auth';
 
 export default function Navbar({ toggleTheme, isLightMode }) {
   const [time, setTime] = useState('');
@@ -20,6 +20,30 @@ export default function Navbar({ toggleTheme, isLightMode }) {
     const t = setInterval(updateTime, 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    // Validate stored token on mount; clear stale session if invalid.
+    async function validate() {
+      try {
+        const token = getToken();
+        if (!token) return;
+        const res = await fetch('http://localhost:8000/incidents/my', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 401 || res.status === 403) {
+          // invalid or expired token -> clear session
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('refresh_token');
+          sessionStorage.removeItem('user');
+          // optional: navigate to login if currently on protected route
+        }
+      } catch (e) {
+        // network issues - keep session for now
+        console.warn('Token validation failed:', e);
+      }
+    }
+    if (authed) validate();
+  }, [authed]);
 
   const links = [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },

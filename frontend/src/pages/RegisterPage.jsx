@@ -236,20 +236,8 @@ export default function RegisterPage() {
         authority_confirmed: confirmedAuthority,
         updates_opt_in: wantsUpdates,
       });
-      sessionStorage.setItem("username", username);
-      sessionStorage.setItem(
-        "registration_profile",
-        JSON.stringify({
-          username,
-          phone_number: phone,
-          address,
-          role,
-          organisation,
-          terms_accepted: acceptedTerms,
-          authority_confirmed: confirmedAuthority,
-          updates_opt_in: wantsUpdates,
-        })
-      );
+      // Do not persist registration profile to sessionStorage to avoid
+      // showing stale user data in the navbar before verification.
       setMessage(data.message || "Verification code sent.");
       setTimeout(() => navigate("/verify-otp", { state: { email } }), 1500);
     } catch (err) {
@@ -265,6 +253,7 @@ export default function RegisterPage() {
     ["dispatcher", Shield, "Dispatcher", "Manage incidents and assign responders"],
     ["supervisor", User, "Supervisor", "Oversee dispatch operations"],
     ["observer", Eye, "Observer", "Monitor-only access to dashboard"],
+    ["citizen", Users, "Citizen", "Submit emergencies and track your reports"],
   ];
 
   const requirements = [

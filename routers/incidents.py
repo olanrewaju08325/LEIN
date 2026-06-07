@@ -2,7 +2,7 @@ from collections import Counter
 from datetime import datetime
 import math
 import os
-from typing import Any, List, cast
+from typing import Any, List, Optional, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
@@ -106,6 +106,57 @@ def map_incident_timestamp(incident: Row) -> Row:
     return mapped_incident
 
 
+def get_assignment_for_incident(incident_id: int) -> Optional[Row]:
+    try:
+        assignment_response = (
+            supabase.table("assignments")
+            .select("*, responders(*)")
+            .eq("incident_id", incident_id)
+            .limit(1)
+            .execute()
+        )
+        assignments = get_rows(assignment_response)
+        return assignments[0] if assignments else None
+    except Exception as exc:
+        print(f"Error fetching assignment for incident {incident_id}: {exc}")
+        return None
+
+
+def get_nearest_hospital_from_incident(incident: Row) -> tuple[Optional[Row], Optional[str]]:
+    try:
+        hospitals_response = supabase.table("hospitals").select("*").execute()
+        hospitals = get_rows(hospitals_response)
+        if not hospitals:
+            return None, None
+        nearest = min(
+            hospitals,
+            key=lambda hospital: haversine(
+                float(incident["lat"]),
+                float(incident["lng"]),
+                float(hospital["lat"]),
+                float(hospital["lng"]),
+            ),
+        )
+        return nearest, get_capacity_label(int(nearest.get("capacity", 0)))
+    except Exception as exc:
+        print(f"Error fetching nearest hospital: {exc}")
+        return None, None
+
+
+def build_status_message(status: str, responder_name: Optional[str], eta: Optional[int]) -> str:
+    if status == "active":
+        return "Your emergency has been received and is being processed by AI."
+    if status == "assigned":
+        if responder_name and eta is not None:
+            return f"Responder {responder_name} has been dispatched. ETA: {eta} mins."
+        if responder_name:
+            return f"Responder {responder_name} has been dispatched."
+        return "Your emergency has been assigned to a responder."
+    if status == "resolved":
+        return "Your emergency has been resolved. Thank you for using LEIN."
+    return "Your incident is being tracked in the LEIN system."
+
+
 @incidents_router.get("", response_model=List[IncidentOut])
 def get_incidents():
     response = (
@@ -117,6 +168,225 @@ def get_incidents():
     )
     incidents = get_rows(response)
     return [map_incident_timestamp(incident) for incident in incidents]
+
+
+@incidents_router.get("/my")
+def get_my_incidents(current_user=Depends(get_current_user)):
+    try:
+        user_metadata = getattr(current_user, "user_metadata", {}) or {}
+        reporter_phone = user_metadata.get("phone_number")
+
+        if reporter_phone:
+            response = (
+                supabase.table("incidents")
+                .select("*")
+                .eq("reporter_phone", reporter_phone)
+                .order("created_at", desc=True)
+                .limit(20)
+                .execute()
+            )
+            incidents = get_rows(response)
+        else:
+            response = (
+                supabase.table("incidents")
+                .select("*")
+                .not_("reporter_name", "is", None)
+                .order("created_at", desc=True)
+                .limit(20)
+                .execute()
+            )
+            incidents = get_rows(response)
+
+        if not incidents and reporter_phone:
+            response = (
+                supabase.table("incidents")
+                .select("*")
+                .order("created_at", desc=True)
+                .limit(100)
+                .execute()
+            )
+            incidents = [
+                incident
+                for incident in get_rows(response)
+                if incident.get("reporter_phone") == reporter_phone
+            ]
+
+        result = []
+        for incident in incidents:
+            assignment = get_assignment_for_incident(incident["id"])
+            responder = assignment.get("responders") if assignment else None
+            nearest_hospital = incident.get("nearest_hospital")
+            hospital_capacity = incident.get("hospital_capacity")
+
+            if not nearest_hospital or not hospital_capacity:
+                hospital, capacity_label = get_nearest_hospital_from_incident(incident)
+                if hospital and not nearest_hospital:
+                    nearest_hospital = hospital.get("name")
+                if not hospital_capacity:
+                    hospital_capacity = capacity_label
+
+            result.append(
+                {
+                    "id": incident["id"],
+                    "type": incident.get("type", ""),
+                    "description": incident.get("description", ""),
+                    "lat": float(incident.get("lat", 0.0)),
+                    "lng": float(incident.get("lng", 0.0)),
+                    "severity": int(incident.get("severity", 0)),
+                    "priority_score": float(incident.get("priority_score", 0.0)),
+                    "lga": incident.get("lga", ""),
+                    "status": incident.get("status", ""),
+                    "timestamp": incident.get("created_at") or incident.get("timestamp"),
+                    "recommended_unit": responder.get("name") if responder else None,
+                    "eta_minutes": assignment.get("eta_minutes") if assignment else None,
+                    "nearest_hospital": nearest_hospital,
+                    "hospital_capacity": str(hospital_capacity) if hospital_capacity is not None else None,
+                    "reporter_name": incident.get("reporter_name"),
+                    "reporter_phone": incident.get("reporter_phone"),
+                }
+            )
+
+        return result
+    except Exception as exc:
+        print(f"Citizen incident fetch error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Could not fetch citizen incidents"},
+        )
+
+
+@incidents_router.get("/{incident_id}/status")
+def get_incident_status(incident_id: int):
+    try:
+        incident_response = (
+            supabase.table("incidents")
+            .select("*")
+            .eq("id", incident_id)
+            .limit(1)
+            .execute()
+        )
+        incidents = get_rows(incident_response)
+        if not incidents:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Incident not found"},
+            )
+
+        incident = incidents[0]
+        assignment = get_assignment_for_incident(incident_id)
+        responder = assignment.get("responders") if assignment else None
+        responder_name = responder.get("name") if responder else None
+        eta = assignment.get("eta_minutes") if assignment else None
+
+        return {
+            "incident_id": incident_id,
+            "type": incident.get("type", ""),
+            "severity": incident.get("severity", 0),
+            "priority_score": incident.get("priority_score", 0.0),
+            "status": incident.get("status", ""),
+            "lga": incident.get("lga", ""),
+            "timestamp": incident.get("created_at"),
+            "assigned_responder": responder_name,
+            "eta_minutes": eta,
+            "message": build_status_message(
+                incident.get("status", ""), responder_name, eta
+            ),
+        }
+    except Exception as exc:
+        print(f"Incident status error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Could not fetch incident status"},
+        )
+
+
+@incidents_router.get("/{incident_id}/track")
+def track_incident(incident_id: int):
+    try:
+        incident_response = (
+            supabase.table("incidents")
+            .select("*")
+            .eq("id", incident_id)
+            .limit(1)
+            .execute()
+        )
+        incidents = get_rows(incident_response)
+        if not incidents:
+            return JSONResponse(
+                status_code=404,
+                content={"error": "Incident not found"},
+            )
+
+        incident = incidents[0]
+        assignment = get_assignment_for_incident(incident_id)
+        responder = assignment.get("responders") if assignment else None
+        responder_name = responder.get("name") if responder else None
+        if responder:
+            responder_type = responder.get("type") or responder.get("role")
+        else:
+            responder_type = None
+        eta = assignment.get("eta_minutes") if assignment else None
+        assignment_time = assignment.get("created_at") if assignment else None
+
+        hospital, capacity_label = get_nearest_hospital_from_incident(incident)
+        nearest_hospital = {
+            "name": hospital.get("name") if hospital else None,
+            "distance_km": round(
+                haversine(
+                    float(incident.get("lat", 0.0)),
+                    float(incident.get("lng", 0.0)),
+                    float(hospital.get("lat", 0.0)) if hospital else 0.0,
+                    float(hospital.get("lng", 0.0)) if hospital else 0.0,
+                ),
+                2,
+            ) if hospital else None,
+            "capacity": capacity_label,
+            "specialisation": hospital.get("specialisation") if hospital else None,
+        }
+
+        return {
+            "incident_id": incident_id,
+            "type": incident.get("type", ""),
+            "description": incident.get("description", ""),
+            "severity": incident.get("severity", 0),
+            "priority_score": incident.get("priority_score", 0.0),
+            "status": incident.get("status", ""),
+            "lga": incident.get("lga", ""),
+            "timestamp": incident.get("created_at"),
+            "ai_result": {
+                "classification": incident.get("type", ""),
+                "severity_score": incident.get("severity", 0),
+                "priority_score": incident.get("priority_score", 0.0),
+            },
+            "dispatch": {
+                "assigned_responder": responder_name,
+                "responder_type": responder_type,
+                "eta_minutes": eta,
+                "dispatched_at": assignment_time,
+            },
+            "nearest_hospital": nearest_hospital,
+            "status_message": build_status_message(
+                incident.get("status", ""), responder_name, eta
+            ),
+            "timeline": [
+                {
+                    "time": incident.get("created_at"),
+                    "event": "Emergency reported",
+                    "detail": f"{incident.get('type', '')} incident in {incident.get('lga', '')}",
+                },
+                {
+                    "time": assignment_time,
+                    "event": "Responder dispatched",
+                    "detail": f"{responder_name} en route" if responder_name else "Awaiting dispatch",
+                },
+            ],
+        }
+    except Exception as exc:
+        print(f"Incident tracking error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Could not fetch incident tracking details"},
+        )
 
 
 @lookup_router.get("/responders", response_model=List[ResponderOut])

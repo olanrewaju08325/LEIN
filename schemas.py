@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -19,6 +20,25 @@ class IncidentOut(BaseModel):
         validation_alias="created_at",
         serialization_alias="timestamp",
     )
+
+
+class CitizenIncidentOut(BaseModel):
+    id: int
+    type: str
+    description: str
+    lat: float
+    lng: float
+    severity: int
+    priority_score: float
+    lga: str
+    status: str
+    timestamp: str
+    recommended_unit: Optional[str] = None
+    eta_minutes: Optional[int] = None
+    nearest_hospital: Optional[str] = None
+    hospital_capacity: Optional[str] = None
+    reporter_name: Optional[str] = None
+    reporter_phone: Optional[str] = None
 
 
 class ResponderOut(BaseModel):
@@ -78,7 +98,7 @@ class RegisterRequest(BaseModel):
     username: str
     phone_number: str | None = None
     address: str
-    role: str = "dispatcher"
+    role: Literal["dispatcher", "supervisor", "observer", "citizen"] = "dispatcher"
     organisation: str | None = None
     terms_accepted: bool = False
     authority_confirmed: bool = False

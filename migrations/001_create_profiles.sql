@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   phone_number TEXT,
   address TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'dispatcher'
-    CHECK (role IN ('dispatcher','supervisor','observer')),
+    CHECK (role IN ('dispatcher','supervisor','observer','citizen')),
   organisation TEXT,
   terms_accepted BOOLEAN NOT NULL DEFAULT FALSE,
   authority_confirmed BOOLEAN NOT NULL DEFAULT FALSE,

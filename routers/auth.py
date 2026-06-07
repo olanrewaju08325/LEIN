@@ -19,6 +19,9 @@ from schemas import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+VALID_ROLES = ["dispatcher", "supervisor", "observer", "citizen"]
+
+
 def is_transient_supabase_error(exc):
     text = str(exc).lower()
     return (
@@ -91,10 +94,13 @@ def register(body: RegisterRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"error": "Address is required"},
         )
-    if body.role not in {"dispatcher", "supervisor", "observer"}:
-        return JSONResponse(
+    # Server-side validation for role to provide a clean error early
+    if body.role not in VALID_ROLES:
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"error": "Invalid role"},
+            detail=(
+                "Invalid role. Must be one of: " + ", ".join(VALID_ROLES)
+            ),
         )
     if not body.terms_accepted or not body.authority_confirmed:
         return JSONResponse(
@@ -130,6 +136,8 @@ def register(body: RegisterRequest):
             "authority_confirmed": body.authority_confirmed,
             "updates_opt_in": body.updates_opt_in,
         }
+
+        # Create auth user
         response = with_supabase_retry(
             lambda: supabase.auth.sign_up(
                 {
@@ -146,15 +154,35 @@ def register(body: RegisterRequest):
                 content={"error": "Could not create account"},
             )
 
-        with_supabase_retry(
-            lambda: supabase.table("profiles").upsert(
+        # Insert profile record separately and handle constraint errors explicitly
+        try:
+            supabase.table("profiles").insert(
                 {
                     "id": response.user.id,
                     "email": response.user.email or email,
                     **profile_data,
                 }
             ).execute()
-        )
+        except Exception as profile_error:
+            error_str = str(profile_error)
+            if "profiles_role_check" in error_str:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Invalid role '{body.role}'. Must be dispatcher, supervisor, observer, or citizen."
+                    ),
+                )
+            elif "23514" in error_str or "check constraint" in error_str.lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Registration data violates database constraints. Please check your input."
+                    ),
+                )
+            else:
+                # Profile insert failed but auth account was created — log it
+                print(f"Profile insert error: {profile_error}")
+                # Return success for now; profile can be created later
 
         return {
             "message": (
