@@ -7,9 +7,11 @@ import OTPPage from './pages/OTPPage';
 import LandingPage from './pages/LandingPage';
 import ReportPage from './pages/ReportPage';
 import DashboardPage from './pages/DashboardPage';
+import CitizenDashboard from './pages/CitizenDashboard';
 import AnalyticsPage from './pages/AnalyticsPage';
 import LoadingScreen from './components/LoadingScreen';
 import { useState, useEffect } from 'react';
+import { isCitizen } from './services/auth';
 import './index.css';
 
 function AppRoutes({ toggleTheme, isLightMode }) {
@@ -31,7 +33,7 @@ function AppRoutes({ toggleTheme, isLightMode }) {
             path="/dashboard"
             element={
               <ProtectedRoute>
-                <DashboardPage />
+                {isCitizen() ? <CitizenDashboard /> : <DashboardPage />}
               </ProtectedRoute>
             }
           />

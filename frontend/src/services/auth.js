@@ -96,6 +96,19 @@ export function getUser() {
   return u ? JSON.parse(u) : null;
 }
 
+export function getUserRole() {
+  const user = getUser();
+  return user?.role || null;
+}
+
+export function isDispatcher() {
+  return getUserRole() === "dispatcher";
+}
+
+export function isCitizen() {
+  return getUserRole() === "citizen";
+}
+
 export function isAuthenticated() {
   return !!sessionStorage.getItem("access_token");
 }

@@ -205,7 +205,7 @@ export default function RegisterPage() {
     if (password.length < 8) nextErrors.password = "Password must be at least 8 characters";
     if (!confirmValid) nextErrors.confirmPassword = "Passwords do not match";
     if (!acceptedTerms) nextErrors.acceptedTerms = "You must agree to the Terms of Service and Privacy Policy";
-    if (!confirmedAuthority) nextErrors.confirmedAuthority = "Please confirm your emergency response authorization";
+    if (requireAuthority && !confirmedAuthority) nextErrors.confirmedAuthority = "Please confirm your emergency response authorization";
     return nextErrors;
   }
 
@@ -265,7 +265,10 @@ export default function RegisterPage() {
     ["dispatcher", Shield, "Dispatcher", "Manage incidents and assign responders"],
     ["supervisor", User, "Supervisor", "Oversee dispatch operations"],
     ["observer", Eye, "Observer", "Monitor-only access to dashboard"],
+    ["citizen", Users, "Citizen", "Report incidents and track response status"],
   ];
+
+  const requireAuthority = role !== "citizen";
 
   const requirements = [
     ["At least 8 characters", password.length >= 8],
@@ -358,7 +361,7 @@ export default function RegisterPage() {
 
           <div style={{ marginBottom: 28 }}>
             <h1 style={{ color: "var(--text-primary)", fontSize: 32, fontWeight: 800, letterSpacing: "-0.02em", margin: "0 0 8px" }}>Create your account</h1>
-            <p style={{ color: "var(--text-muted)", fontSize: 15, margin: 0 }}>Get started with LEIN dispatch access</p>
+            <p style={{ color: "var(--text-muted)", fontSize: 15, margin: 0 }}>Get started with LEIN access for dispatch and citizen reporting</p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr auto 1fr", alignItems: "center", gap: 10, marginBottom: 36 }}>
@@ -417,8 +420,41 @@ export default function RegisterPage() {
 
             <section>
               <h2 style={sectionLabel}>Your Role</h2>
-              <label style={labelStyle}>I am a *</label>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
+            <div
+              style={{
+                display: "flex",
+                gap: 14,
+                alignItems: "flex-start",
+                background: "rgba(16,185,129,0.12)",
+                border: "1px solid rgba(16,185,129,0.24)",
+                borderRadius: 18,
+                padding: 18,
+                marginBottom: 20,
+              }}
+            >
+              <div
+                style={{
+                  width: 40,
+                  minWidth: 40,
+                  height: 40,
+                  borderRadius: 999,
+                  display: "grid",
+                  placeItems: "center",
+                  background: "var(--safe-green)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                <Check size={18} />
+              </div>
+              <div>
+                <div style={{ color: "var(--text-primary)", fontWeight: 900, marginBottom: 6 }}>Citizen reporting is now supported</div>
+                <div style={{ color: "var(--text-muted)", fontSize: 13, lineHeight: 1.6 }}>
+                  Choose "Citizen" to submit a report, track response progress, and receive updates without needing emergency response authorization.
+                </div>
+              </div>
+            </div>
+            <label style={labelStyle}>I am a *</label>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12, marginBottom: 18 }}>
                 {roles.map(([value, Icon, title, subtitle]) => {
                   const selected = role === value;
                   return (
@@ -522,10 +558,14 @@ export default function RegisterPage() {
                 </CustomCheckbox>
                 <FieldError>{fieldErrors.acceptedTerms}</FieldError>
 
-                <CustomCheckbox checked={confirmedAuthority} onClick={() => setConfirmedAuthority((v) => !v)}>
-                  I confirm I am an authorized emergency response professional or student researcher
-                </CustomCheckbox>
-                <FieldError>{fieldErrors.confirmedAuthority}</FieldError>
+                {requireAuthority && (
+                  <>
+                    <CustomCheckbox checked={confirmedAuthority} onClick={() => setConfirmedAuthority((v) => !v)}>
+                      I confirm I am an authorized emergency response professional or student researcher
+                    </CustomCheckbox>
+                    <FieldError>{fieldErrors.confirmedAuthority}</FieldError>
+                  </>
+                )}
 
                 <CustomCheckbox checked={wantsUpdates} onClick={() => setWantsUpdates((v) => !v)}>
                   Send me updates about LEIN's development and new features

@@ -2,7 +2,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Activity, LayoutDashboard, LineChart, LogOut, Moon, ShieldAlert, Sun } from 'lucide-react';
-import { getUser, isAuthenticated, logout } from '../services/auth';
+import { getUser, getUserRole, isAuthenticated, isCitizen, logout } from '../services/auth';
 
 export default function Navbar({ toggleTheme, isLightMode }) {
   const [time, setTime] = useState('');
@@ -21,10 +21,12 @@ export default function Navbar({ toggleTheme, isLightMode }) {
     return () => clearInterval(t);
   }, []);
 
+  const userRole = getUserRole();
+
   const links = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/analytics', label: 'Analytics', icon: LineChart },
+    { to: '/dashboard', label: userRole === 'citizen' ? 'My Reports' : 'Dashboard', icon: LayoutDashboard },
     { to: '/report', label: 'Report', icon: Activity },
+    ...(!isCitizen() ? [{ to: '/analytics', label: 'Analytics', icon: LineChart }] : []),
   ];
 
   const handleLogout = () => {
@@ -112,6 +114,11 @@ export default function Navbar({ toggleTheme, isLightMode }) {
           {authed && user && (
             <span style={{ color: 'var(--text-primary)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {user.full_name}
+            </span>
+          )}
+          {authed && userRole && (
+            <span style={{ padding: '6px 12px', borderRadius: 999, background: 'rgba(59,130,246,0.12)', color: 'var(--ai-blue)', fontSize: 12, fontWeight: 900, textTransform: 'capitalize' }}>
+              {userRole}
             </span>
           )}
           <button
