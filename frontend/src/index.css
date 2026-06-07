@@ -1,16 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
-  /* Core Colors - Dark Mode Default */
-  --bg-primary: #071226;
-  --bg-secondary: #0B1730;
-  --bg-panel: rgba(18, 32, 64, 0.95);
-  --bg-panel-solid: #0B1220;
-  --bg-intake: #111C33;
-  --bg-card: rgba(0,0,0,0.3);
-  --bg-nav: rgba(11, 23, 48, 0.98);
-  
-  /* Brand/Status Colors */
+  --bg-primary: #0A0F1E;
+  --bg-secondary: #111827;
+  --bg-panel: rgba(255,255,255,0.04);
+  --bg-panel-solid: #111827;
+  --bg-intake: #111827;
+  --bg-card: rgba(255,255,255,0.06);
+  --bg-nav: rgba(10,15,30,0.95);
+
   --ai-blue: #3B82F6;
   --ai-blue-glow: rgba(59,130,246,0.3);
   --ai-blue-light: #60A5FA;
@@ -29,13 +27,11 @@
   
   --premium-gold: #FCD34D;
   --premium-gold-glow: rgba(252,211,77,0.3);
-  
-  /* High Contrast Text */
+
   --text-primary: #FFFFFF;
   --text-secondary: #CBD5E1;
   --text-muted: #94A3B8;
-  
-  /* Borders & Shadows */
+
   --border: rgba(255,255,255,0.08);
   --border-bright: rgba(255,255,255,0.15);
   --border-intake: rgba(255,255,255,0.15);
@@ -44,7 +40,6 @@
   --shadow-intake: 0 20px 60px rgba(0,0,0,0.5);
   --shadow-map: 0 0 40px rgba(46,107,230,0.15);
 
-  /* Scales */
   --radius-sm: 8px;
   --radius: 12px;
   --radius-lg: 16px;

@@ -1,5 +1,9 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Navigate, Routes, Route, useLocation } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import OTPPage from './pages/OTPPage';
 import LandingPage from './pages/LandingPage';
 import ReportPage from './pages/ReportPage';
 import DashboardPage from './pages/DashboardPage';
@@ -7,6 +11,44 @@ import AnalyticsPage from './pages/AnalyticsPage';
 import LoadingScreen from './components/LoadingScreen';
 import { useState, useEffect } from 'react';
 import './index.css';
+
+function AppRoutes({ toggleTheme, isLightMode }) {
+  const location = useLocation();
+  const hideNavbar = ['/login', '/register', '/verify-otp'].includes(location.pathname);
+
+  return (
+    <>
+      {!hideNavbar && <Navbar toggleTheme={toggleTheme} isLightMode={isLightMode} />}
+      <div className={hideNavbar ? '' : 'app-content'}>
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="/verify-otp" element={<OTPPage />} />
+          <Route path="/report" element={<ReportPage />} />
+          <Route path="/intake" element={<Navigate to="/report" replace />} />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </>
+  );
+}
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -27,17 +69,9 @@ function App() {
   }
 
   return (
-    <Router>
-      <Navbar toggleTheme={toggleTheme} isLightMode={isLightMode} />
-      <div className="app-content">
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/intake" element={<ReportPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-        </Routes>
-      </div>
-    </Router>
+    <BrowserRouter>
+      <AppRoutes toggleTheme={toggleTheme} isLightMode={isLightMode} />
+    </BrowserRouter>
   );
 }
 

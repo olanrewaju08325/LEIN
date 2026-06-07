@@ -1,3 +1,5 @@
+import time
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 
@@ -17,13 +19,49 @@ from schemas import (
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def is_transient_supabase_error(exc):
+    text = str(exc).lower()
+    return (
+        "readerror" in text
+        or "ssl" in text
+        or "bad record mac" in text
+        or "server disconnected" in text
+        or "connection reset" in text
+        or "timeout" in text
+    )
+
+
+def with_supabase_retry(operation, attempts=3, delay=0.6):
+    last_exc = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return operation()
+        except Exception as exc:
+            last_exc = exc
+            if not is_transient_supabase_error(exc) or attempt == attempts:
+                raise
+            print(
+                "Transient Supabase error during register "
+                f"(attempt {attempt}/{attempts}): {type(exc).__name__}: {exc}"
+            )
+            time.sleep(delay * attempt)
+    raise last_exc
+
+
 def get_user_metadata(user):
     metadata = getattr(user, "user_metadata", None) or {}
     return {
         "id": user.id,
         "email": user.email,
         "full_name": metadata.get("full_name", ""),
+        "username": metadata.get("username", ""),
+        "phone_number": metadata.get("phone_number", ""),
+        "address": metadata.get("address", ""),
         "role": metadata.get("role", "dispatcher"),
+        "organisation": metadata.get("organisation", ""),
+        "terms_accepted": metadata.get("terms_accepted", False),
+        "authority_confirmed": metadata.get("authority_confirmed", False),
+        "updates_opt_in": metadata.get("updates_opt_in", False),
     }
 
 
@@ -38,20 +76,68 @@ def register(body: RegisterRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"error": "Password must be at least 8 characters"},
         )
+    if len(body.full_name.strip()) < 2:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Full name is required"},
+        )
+    if len(body.username.strip()) < 3 or not body.username.replace("_", "").isalnum():
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Username can only contain letters, numbers, and underscores"},
+        )
+    if len(body.address.strip()) < 3:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Address is required"},
+        )
+    if body.role not in {"dispatcher", "supervisor", "observer"}:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Invalid role"},
+        )
+    if not body.terms_accepted or not body.authority_confirmed:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Required agreements must be accepted"},
+        )
 
     try:
         email = str(body.email)
-        response = supabase.auth.sign_up(
-            {
-                "email": email,
-                "password": body.password,
-                "options": {
-                    "data": {
-                        "full_name": body.full_name,
-                        "role": body.role,
-                    }
-                },
-            }
+        existing_username = with_supabase_retry(
+            lambda: (
+                supabase.table("profiles")
+                .select("id")
+                .eq("username", body.username)
+                .limit(1)
+                .execute()
+            )
+        )
+        if getattr(existing_username, "data", None):
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={"error": "Username already taken"},
+            )
+
+        profile_data = {
+            "full_name": body.full_name,
+            "username": body.username,
+            "phone_number": body.phone_number or "",
+            "address": body.address,
+            "role": body.role,
+            "organisation": body.organisation or "",
+            "terms_accepted": body.terms_accepted,
+            "authority_confirmed": body.authority_confirmed,
+            "updates_opt_in": body.updates_opt_in,
+        }
+        response = with_supabase_retry(
+            lambda: supabase.auth.sign_up(
+                {
+                    "email": email,
+                    "password": body.password,
+                    "options": {"data": profile_data},
+                }
+            )
         )
 
         if not response or not response.user:
@@ -59,6 +145,16 @@ def register(body: RegisterRequest):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"error": "Could not create account"},
             )
+
+        with_supabase_retry(
+            lambda: supabase.table("profiles").upsert(
+                {
+                    "id": response.user.id,
+                    "email": response.user.email or email,
+                    **profile_data,
+                }
+            ).execute()
+        )
 
         return {
             "message": (
@@ -68,6 +164,7 @@ def register(body: RegisterRequest):
             "user_id": response.user.id,
             "email": response.user.email or email,
             "role": body.role,
+            "username": body.username,
         }
     except Exception as exc:
         print(f"Supabase register error: {type(exc).__name__}: {repr(exc)}")
@@ -75,6 +172,21 @@ def register(body: RegisterRequest):
             return JSONResponse(
                 status_code=status.HTTP_409_CONFLICT,
                 content={"error": "Email already registered"},
+            )
+        if "profiles" in str(exc) or "PGRST205" in str(exc):
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": (
+                        "Profile table is missing. Run the profiles migration "
+                        "SQL in Supabase, then try again."
+                    )
+                },
+            )
+        if is_transient_supabase_error(exc):
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"error": "Supabase connection failed. Please try again."},
             )
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

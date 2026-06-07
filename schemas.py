@@ -75,7 +75,14 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
+    username: str
+    phone_number: str | None = None
+    address: str
     role: str = "dispatcher"
+    organisation: str | None = None
+    terms_accepted: bool = False
+    authority_confirmed: bool = False
+    updates_opt_in: bool = False
 
 
 class LoginRequest(BaseModel):
@@ -99,6 +106,7 @@ class RegisterResponse(BaseModel):
     user_id: str
     email: str
     role: str
+    username: str
 
 
 class VerifyOTPRequest(BaseModel):
