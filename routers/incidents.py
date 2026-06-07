@@ -106,7 +106,7 @@ def map_incident_timestamp(incident: Row) -> Row:
     return mapped_incident
 
 
-@incidents_router.get("/", response_model=List[IncidentOut])
+@incidents_router.get("", response_model=List[IncidentOut])
 def get_incidents():
     response = (
         supabase.table("incidents")
@@ -121,14 +121,22 @@ def get_incidents():
 
 @lookup_router.get("/responders", response_model=List[ResponderOut])
 def get_responders():
-    response = supabase.table("responders").select("*").execute()
-    return get_rows(response)
+    try:
+        response = supabase.table("responders").select("*").execute()
+        return get_rows(response)
+    except Exception as e:
+        print(f"Error fetching responders: {e}")
+        return []
 
 
 @lookup_router.get("/hospitals", response_model=List[HospitalOut])
 def get_hospitals():
-    response = supabase.table("hospitals").select("*").execute()
-    return get_rows(response)
+    try:
+        response = supabase.table("hospitals").select("*").execute()
+        return get_rows(response)
+    except Exception as e:
+        print(f"Error fetching hospitals: {e}")
+        return []
 
 
 @lookup_router.get("/stats/heatmap", response_model=List[HeatmapOut])
@@ -194,17 +202,30 @@ async def get_incident_forecast():
 @lookup_router.post("/incidents")
 async def create_incident(
     body: IncidentCreate,
-    current_user=Depends(get_current_user),
 ):
     try:
-        responders_response = (
-            supabase.table("responders")
-            .select("*")
-            .eq("status", "available")
-            .execute()
-        )
-        available_responders = get_rows(responders_response)
+        # Fetch available responders (external call)
+        try:
+            responders_response = (
+                supabase.table("responders")
+                .select("*")
+                .execute()
+            )
+            print(f"RESPONDERS RAW RESPONSE: data={getattr(responders_response, 'data', None)} error={getattr(responders_response, 'error', None)} status_code={getattr(responders_response, 'status_code', None)}")
+            available_responders = get_rows(responders_response)
+            print(f"RESPONDERS DATA LIST: {available_responders}")
+            available_responders = [
+                responder
+                for responder in available_responders
+                if responder.get("status") in ("available", "active")
+            ]
+            print(f"FILTERED AVAILABLE RESPONDERS: {available_responders}")
+        except Exception as exc:
+            print(f"Error fetching responders from Supabase: {exc}")
+            available_responders = []
 
+        # Run AI pipeline (may call external services). process_incident now returns safe fallback on its own,
+        # but we still guard here to be extra-safe.
         try:
             ai_result = process_incident(
                 description=body.description,
@@ -214,28 +235,20 @@ async def create_incident(
                 lga=body.location,
                 available_responders=available_responders,
             )
-            incident_type = str(ai_result["type"])
-            severity = max(1, min(5, int(ai_result["severity"])))
-            priority_score = max(1.0, min(10.0, float(ai_result["priority_score"])))
-            recommended_unit = str(ai_result["recommended_unit"])
-            eta_minutes = max(0, int(ai_result["eta_minutes"]))
+            incident_type = str(ai_result.get("type") or body.type)
+            # defensively handle missing or None values from AI
+            severity = max(1, min(5, int(ai_result.get("severity") or 3)))
+            priority_score = max(1.0, min(10.0, float(ai_result.get("priority_score") or (severity * 2))))
+            recommended_unit = str(ai_result.get("recommended_unit") or "No units available")
+            eta_minutes = max(0, int(ai_result.get("eta_minutes") or 5))
         except Exception as exc:
+            # If AI pipeline fails entirely, log and use safe fallbacks
             print(f"AI pipeline error: {exc}")
-            base_scores = {
-                "Medical": 9,
-                "Fire": 8,
-                "Accident": 7,
-                "Security": 6,
-            }
-            severity = base_scores.get(body.type, 7)
-            priority_score = float(severity * 2)
             incident_type = body.type
-            recommended_unit = (
-                str(available_responders[0]["name"])
-                if available_responders
-                else "No units available"
-            )
-            eta_minutes = 5
+            severity = 3
+            priority_score = 5.0
+            recommended_unit = "General Response"
+            eta_minutes = 15
 
         incident_payload = {
             "type": incident_type,
@@ -249,8 +262,18 @@ async def create_incident(
             "reporter_name": body.reporter_name,
             "reporter_phone": body.reporter_phone,
         }
-        incident_response = supabase.table("incidents").insert(incident_payload).execute()
-        incident_data = get_rows(incident_response)
+
+        # Insert incident (external call)
+        try:
+            incident_response = supabase.table("incidents").insert(incident_payload).execute()
+            incident_data = get_rows(incident_response)
+        except Exception as exc:
+            print(f"Error inserting incident into Supabase: {exc}")
+            return JSONResponse(
+                status_code=500,
+                content={"error": "Incident could not be created"},
+            )
+
         if not incident_data:
             return JSONResponse(
                 status_code=500,
@@ -260,6 +283,7 @@ async def create_incident(
         new_incident = incident_data[0]
         new_incident_id = new_incident["id"]
 
+        # Try to assign nearest responder (external calls). Failures are logged but non-fatal.
         nearest_responder = next(
             (
                 responder
@@ -269,32 +293,50 @@ async def create_incident(
             None,
         )
         if nearest_responder:
-            supabase.table("assignments").insert(
-                {
-                    "incident_id": new_incident_id,
-                    "responder_id": nearest_responder["id"],
-                    "eta_minutes": eta_minutes,
-                }
-            ).execute()
+            try:
+                supabase.table("assignments").insert(
+                    {
+                        "incident_id": new_incident_id,
+                        "responder_id": nearest_responder["id"],
+                        "eta_minutes": eta_minutes,
+                    }
+                ).execute()
+            except Exception as exc:
+                print(f"Error inserting assignment into Supabase: {exc}")
 
-            supabase.table("responders").update({"status": "assigned"}).eq(
-                "id",
-                nearest_responder["id"],
-            ).execute()
+            try:
+                supabase.table("responders").update({"status": "assigned"}).eq(
+                    "id",
+                    nearest_responder["id"],
+                ).execute()
+            except Exception as exc:
+                print(f"Error updating responder status in Supabase: {exc}")
 
-        hospitals_response = supabase.table("hospitals").select("*").execute()
-        hospitals = get_rows(hospitals_response)
+        # Fetch hospitals (external call) and compute nearest — errors should not crash the request
+        try:
+            hospitals_response = supabase.table("hospitals").select("*").execute()
+            print(f"HOSPITALS RAW RESPONSE: data={getattr(hospitals_response, 'data', None)} error={getattr(hospitals_response, 'error', None)} status_code={getattr(hospitals_response, 'status_code', None)}")
+            hospitals = get_rows(hospitals_response)
+            print(f"HOSPITALS DATA LIST: {hospitals}")
+        except Exception as exc:
+            print(f"Error fetching hospitals from Supabase: {exc}")
+            hospitals = []
+
         nearest_hospital: Row | None = None
         if hospitals:
-            nearest_hospital = min(
-                hospitals,
-                key=lambda hospital: haversine(
-                    body.lat,
-                    body.lng,
-                    float(hospital["lat"]),
-                    float(hospital["lng"]),
-                ),
-            )
+            try:
+                nearest_hospital = min(
+                    hospitals,
+                    key=lambda hospital: haversine(
+                        body.lat,
+                        body.lng,
+                        float(hospital["lat"]),
+                        float(hospital["lng"]),
+                    ),
+                )
+            except Exception as exc:
+                print(f"Error computing nearest hospital: {exc}")
+                nearest_hospital = None
 
         nearest_hospital_name = nearest_hospital["name"] if nearest_hospital else "None"
         hospital_capacity = (

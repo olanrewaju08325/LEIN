@@ -9,7 +9,7 @@ const TYPE_META = {
   Accident: { icon: CarFront,    color: 'var(--warn-amber)' },
 };
 
-export default function IncidentQueue({ incidents, selectedId, onSelect }) {
+export default function IncidentQueue({ incidents, selectedId, onSelectIncident }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -18,6 +18,25 @@ export default function IncidentQueue({ incidents, selectedId, onSelect }) {
   }, []);
 
   const getMeta = (type) => TYPE_META[type] || { icon: Activity, color: '#94A3B8' };
+  const formatMinutesAgo = (timestamp) => {
+    if (!timestamp) return 'a few mins ago';
+    const minutes = Math.max(0, Math.floor((now - new Date(timestamp).getTime()) / 60000));
+    return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  };
+
+  const getPriorityColor = (score) => {
+    if (score > 7) return 'var(--alert-red)';
+    if (score >= 4) return 'var(--warn-amber)';
+    return 'var(--safe-green)';
+  };
+
+  if (!incidents || incidents.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+        No active incidents
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -26,68 +45,81 @@ export default function IncidentQueue({ incidents, selectedId, onSelect }) {
           const meta = getMeta(incident.type);
           const Icon = meta.icon;
           const isSelected = selectedId === incident.id;
-          const isCritical = incident.priority_score > 7;
-          
+          const priorityScore = Number(incident.priority_score ?? incident.severity * 2);
+          const priorityColor = getPriorityColor(priorityScore);
+          const isCritical = priorityScore > 7;
+
           return (
             <motion.div
               layout
               key={incident.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.3 }}
-              className={`incident-card ${isSelected ? 'selected' : ''} ${isCritical ? 'emergency-mode-card' : ''}`}
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98 }}
+              transition={{ duration: 0.25 }}
+              className={`incident-card ${isSelected ? 'selected' : ''}`}
               style={{
-                '--severity-color': isCritical ? 'var(--alert-red)' : meta.color,
-                boxShadow: isCritical && isSelected ? '0 0 24px rgba(229,72,77,0.2)' : 'none'
+                borderColor: isSelected ? priorityColor : 'rgba(255,255,255,0.08)',
+                background: 'rgba(255,255,255,0.04)',
+                boxShadow: isSelected ? `0 0 24px ${priorityColor}22` : 'none',
+                cursor: 'pointer',
               }}
-              onClick={() => onSelect(incident.id)}
+              onClick={() => onSelectIncident?.(incident)}
             >
-              <div className="inc-header">
-                <div className="inc-type" style={{ color: meta.color }}>
-                  <Icon size={24} /> 
-                  <span>{isCritical ? 'CRITICAL ' : ''}{incident.type} EMERGENCY</span>
-                </div>
-              </div>
-              
-              <div style={{ fontSize: 16, color: 'var(--text-primary)', marginBottom: 16, fontWeight: 700 }}>
-                {incident.lga} LGA
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>PRIORITY</span>
-                  <span style={{ color: isCritical ? 'var(--alert-red)' : 'var(--text-primary)', fontSize: 20, fontWeight: 900 }}>
-                    {incident.priority_score ? incident.priority_score.toFixed(1) : (incident.severity * 2).toFixed(1)}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 40, height: 40, position: 'relative' }}>
-                    <svg viewBox="0 0 36 36" style={{ width: '100%', height: '100%', transform: 'rotate(-90deg)' }}>
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-                      <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="var(--ai-blue)" strokeWidth="3" strokeDasharray={`${Math.round(incident.priority_score ? incident.priority_score * 10 : 94)}, 100`} />
-                    </svg>
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff' }}>
-                      {Math.round(incident.priority_score ? incident.priority_score * 10 : 94)}
-                    </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ color: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 10, background: `${meta.color}22` }}>
+                    <Icon size={18} />
                   </div>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 700 }}>AI CONFIDENCE</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-primary)' }}>{incident.type || 'Incident'}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{incident.type} emergency</div>
+                  </div>
+                </div>
+                {isCritical && (
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#fff', background: 'var(--alert-red)', borderRadius: 999, padding: '4px 8px' }}>
+                    CRITICAL
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 12, marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Location</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' }}>{incident.lga || 'Unknown LGA'}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Priority</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: priorityColor }}>{priorityScore.toFixed(1)}</div>
                 </div>
               </div>
 
-              <div className="inc-time">
-                Reported {incident.timestamp ? Math.floor((now - new Date(incident.timestamp).getTime()) / 60000) : '2'} minutes ago
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Reported {formatMinutesAgo(incident.timestamp)}</div>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onSelectIncident?.(incident);
+                  }}
+                  style={{
+                    border: 'none',
+                    borderRadius: 999,
+                    padding: '8px 14px',
+                    background: 'var(--accent-blue)',
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
+                  View Details
+                </button>
               </div>
             </motion.div>
           );
         })}
       </AnimatePresence>
-
-      {incidents.length === 0 && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
-          SYSTEM STATUS: STABLE<br/>NO ACTIVE INCIDENTS
-        </div>
-      )}
     </div>
   );
 }

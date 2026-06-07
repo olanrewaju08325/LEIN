@@ -3,6 +3,8 @@ import { Users, Building2, Server, BrainCircuit, ActivitySquare, TrendingUp, Shi
 import { motion } from 'framer-motion';
 import gsap from 'gsap';
 import LEINMap from '../components/LEINMap';
+import IncidentDetail from '../components/IncidentDetail';
+import { useMemo } from 'react';
 import IncidentQueue from '../components/IncidentQueue';
 import api from '../services/api';
 
@@ -34,6 +36,21 @@ export default function DashboardPage() {
   
   const dashboardRef = useRef(null);
 
+  const handleSelectIncident = (incident) => {
+    setSelectedIncident(incident);
+  };
+
+  const handleDispatchSuccess = (incidentId) => {
+    setIncidents((prev) =>
+      prev.map((item) =>
+        item.id === incidentId ? { ...item, status: 'dispatched' } : item
+      )
+    );
+    setSelectedIncident((prev) =>
+      prev && prev.id === incidentId ? { ...prev, status: 'dispatched' } : prev
+    );
+  };
+
   useEffect(() => {
     let active = true;
     const fetchData = async () => {
@@ -45,6 +62,12 @@ export default function DashboardPage() {
         ]);
         
         if (!active) return;
+
+        console.log('Dashboard fetch:', {
+          incidents: incRes.data,
+          responders: respRes.data,
+          hospitals: hospRes.data,
+        });
 
         const finalIncidents = incRes.data.length > 0 ? incRes.data : MOCK_INCIDENTS;
         const finalResponders = respRes.data.length > 0 ? respRes.data : MOCK_RESPONDERS;
@@ -69,6 +92,25 @@ export default function DashboardPage() {
     fetchData();
     return () => { active = false; };
   }, []);
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+              Math.sin(dLon/2)**2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  }
+
+  const sortedHospitals = useMemo(() => {
+    if (!selectedIncident || !hospitals || hospitals.length === 0) return hospitals;
+    return [...hospitals].sort((a, b) => {
+      const da = haversine(selectedIncident.lat, selectedIncident.lng, a.lat, a.lng);
+      const db = haversine(selectedIncident.lat, selectedIncident.lng, b.lat, b.lng);
+      return da - db;
+    });
+  }, [selectedIncident, hospitals]);
 
   // System Alive Entrance Animation
   useEffect(() => {
@@ -132,9 +174,9 @@ export default function DashboardPage() {
           <div className="dash-panel-content" style={{ overflowY: 'auto' }}>
             {!loading ? (
               <IncidentQueue 
-                incidents={incidents} 
-                selectedId={selectedIncident?.id} 
-                onSelect={id => setSelectedIncident(incidents.find(i => i.id === id))} 
+                incidents={incidents}
+                selectedId={selectedIncident?.id}
+                onSelectIncident={handleSelectIncident}
               />
             ) : (
               <div style={{ color: 'var(--text-muted)' }}>Loading intelligence...</div>
@@ -150,27 +192,57 @@ export default function DashboardPage() {
           </div>
           <div className="dash-panel-content">
             {selectedIncident ? (
-              <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-bright)', borderRadius: 12, padding: 24 }}>
-                <div style={{ fontSize: 18, color: 'var(--text-primary)', fontWeight: 800, marginBottom: 20 }}>TACTICAL RECOMMENDATION</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              (() => {
+                const nearest = (sortedHospitals && sortedHospitals.length > 0) ? sortedHospitals[0] : null;
+                const capacityLabel = (c) => {
+                  if (c == null) return 'Unknown';
+                  if (c < 50) return 'Available';
+                  if (c < 80) return 'Moderate';
+                  return 'Critical';
+                };
+                return (
                   <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Recommended Unit</div>
-                    <div style={{ color: 'var(--ai-blue)', fontSize: 18, fontWeight: 900 }}>Unit A-07</div>
+                    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-bright)', borderRadius: 12, padding: 24, marginBottom: 12 }}>
+                      <div style={{ fontSize: 18, color: 'var(--text-primary)', fontWeight: 800, marginBottom: 20 }}>TACTICAL RECOMMENDATION</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Recommended Unit</div>
+                          <div style={{ color: 'var(--ai-blue)', fontSize: 18, fontWeight: 900 }}>Unit A-07</div>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Est. Arrival Time</div>
+                          <div style={{ color: 'var(--safe-green)', fontSize: 18, fontWeight: 900 }}>4 Minutes</div>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Nearest Hospital</div>
+                          <div style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 900 }}>{nearest ? nearest.name : 'Unknown'}</div>
+                        </div>
+                        <div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Hospital Capacity</div>
+                          <div style={{ color: 'var(--warn-amber)', fontSize: 18, fontWeight: 900 }}>{nearest ? capacityLabel(nearest.capacity) : 'Unknown'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pass sorted hospitals to IncidentDetail so index 0 is the closest */}
+                    <IncidentDetail
+                      incident={selectedIncident}
+                      hospitals={sortedHospitals || hospitals}
+                      responders={responders}
+                      onResolve={async (id) => {
+                        try {
+                          await api.post('/resolve', { incident_id: id });
+                          setIncidents((prev) => prev.filter((it) => it.id !== id));
+                          setSelectedIncident(null);
+                        } catch (e) {
+                          console.warn('Resolve failed', e);
+                        }
+                      }}
+                      onDispatchSuccess={handleDispatchSuccess}
+                    />
                   </div>
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Est. Arrival Time</div>
-                    <div style={{ color: 'var(--safe-green)', fontSize: 18, fontWeight: 900 }}>4 Minutes</div>
-                  </div>
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Nearest Hospital</div>
-                    <div style={{ color: 'var(--text-primary)', fontSize: 18, fontWeight: 900 }}>Lagos General</div>
-                  </div>
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', marginBottom: 4 }}>Hospital Capacity</div>
-                    <div style={{ color: 'var(--warn-amber)', fontSize: 18, fontWeight: 900 }}>Moderate</div>
-                  </div>
-                </div>
-              </div>
+                );
+              })()
             ) : (
               <div style={{ color: 'var(--text-muted)', padding: 24 }}>Select an incident.</div>
             )}

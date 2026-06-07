@@ -56,8 +56,8 @@ class IncidentCreate(BaseModel):
     location: str
     lat: float
     lng: float
-    reporter_name: str
-    reporter_phone: str
+    reporter_name: str = "anonymous"
+    reporter_phone: str | None = None
 
 
 class IncidentResponse(BaseModel):

@@ -30,12 +30,23 @@ def optimize_routing(
     lga: str,
     incident_type: str = 'Medical',
 ) -> Dict:
-    available = [res for res in responders if res.get('status') == 'available']
+    available = [res for res in responders if res.get('status') in ('available', 'active')]
     if not available:
         return {'error': 'No available responders', 'recommended_unit': None, 'eta_minutes': None}
 
     preferred_type = TYPE_TO_RESPONDER.get(incident_type, 'Ambulance')
-    typed = [res for res in available if res.get('type') == preferred_type]
+    type_map = {
+        'Medical': ['medical', 'ambulance'],
+        'Fire': ['fire'],
+        'Security': ['police', 'security'],
+        'Accident': ['ambulance', 'rescue'],
+    }
+    preferred_types = [t.lower() for t in type_map.get(incident_type, [preferred_type])]
+    typed = [
+        res
+        for res in available
+        if str(res.get('type', '')).strip().lower() in preferred_types
+    ]
     pool = typed if typed else available
 
     traffic_multiplier = 1.0

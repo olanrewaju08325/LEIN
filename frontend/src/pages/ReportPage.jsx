@@ -106,10 +106,7 @@ export default function ReportPage() {
       setError('Describe the emergency with at least 10 characters.');
       return;
     }
-    if (!form.reporter_name.trim() || !form.reporter_phone.trim()) {
-      setError('Reporter name and phone number are required.');
-      return;
-    }
+    // Reporter details are optional for public reports
 
     setLoadingStep(0);
     setIsSubmitting(true);
@@ -120,8 +117,8 @@ export default function ReportPage() {
         location: form.location,
         lat: Number(form.lat),
         lng: Number(form.lng),
-        reporter_name: form.reporter_name,
-        reporter_phone: form.reporter_phone,
+        reporter_name: form.reporter_name && form.reporter_name.trim() ? form.reporter_name.trim() : 'anonymous',
+        reporter_phone: form.reporter_phone && form.reporter_phone.trim() ? form.reporter_phone.trim() : null,
       });
       setResult(response.data);
     } catch (err) {
@@ -339,7 +336,7 @@ export default function ReportPage() {
           style={{ width: '100%', minHeight: 64, background: 'var(--ai-blue)', border: '1px solid var(--ai-blue)', borderRadius: 'var(--radius-lg)', color: 'var(--text-primary)', fontSize: 15, fontWeight: 900, letterSpacing: 0, cursor: isSubmitting ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '12px 18px' }}
         >
           {isSubmitting ? <Loader2 className="inline-spin" size={22} /> : null}
-          {isSubmitting ? loadingSteps[loadingStep] : 'DISPATCH EMERGENCY RESPONSE'}
+          {isSubmitting ? loadingSteps[loadingStep] : 'Send to Dispatcher'}
         </button>
       </motion.div>
     </div>
