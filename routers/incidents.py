@@ -1,12 +1,16 @@
 from collections import Counter
 from datetime import datetime
 import math
+import os
 from typing import Any, List, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from ai.forecaster import get_forecast
+from ai.pipeline import process_incident
+from ai.router import optimize_routing
 from database import supabase
 from dependencies import get_current_user
 from schemas import HeatmapOut, HospitalOut, IncidentCreate, IncidentOut, ResponderOut
@@ -72,7 +76,7 @@ def calculate_severity(incident_type: str, description: str, hour: int) -> int:
         "attack",
     ]
 
-    severity = base_scores.get(incident_type, 5)
+    severity = round(base_scores.get(incident_type, 7) / 2)
     if 6 <= hour <= 9 or 16 <= hour <= 20:
         severity += 1
 
@@ -141,45 +145,50 @@ def get_heatmap():
 
 
 @lookup_router.get("/forecast")
-def get_forecast():
-    return [
-        {
-            "lga": "Ikeja",
-            "type": "Medical",
-            "predicted_incidents": 8,
-            "hour": "1:00 PM",
-        },
-        {
-            "lga": "Lagos Island",
-            "type": "Fire",
-            "predicted_incidents": 3,
-            "hour": "2:00 PM",
-        },
-        {
-            "lga": "Surulere",
-            "type": "Medical",
-            "predicted_incidents": 5,
-            "hour": "3:00 PM",
-        },
-        {
-            "lga": "Lekki",
-            "type": "Security",
-            "predicted_incidents": 4,
-            "hour": "4:00 PM",
-        },
-        {
-            "lga": "Oshodi",
-            "type": "Accident",
-            "predicted_incidents": 6,
-            "hour": "5:00 PM",
-        },
-        {
-            "lga": "Yaba",
-            "type": "Medical",
-            "predicted_incidents": 7,
-            "hour": "6:00 PM",
-        },
-    ]
+async def get_incident_forecast():
+    try:
+        forecast = get_forecast(hours_ahead=6)
+        return forecast
+    except Exception as exc:
+        print(f"Forecast error: {exc}")
+        return [
+            {
+                "lga": "Ikeja",
+                "type": "Medical",
+                "predicted_incidents": 8,
+                "hour": "1:00 PM",
+            },
+            {
+                "lga": "Lagos Island",
+                "type": "Fire",
+                "predicted_incidents": 3,
+                "hour": "2:00 PM",
+            },
+            {
+                "lga": "Surulere",
+                "type": "Medical",
+                "predicted_incidents": 5,
+                "hour": "3:00 PM",
+            },
+            {
+                "lga": "Lekki",
+                "type": "Security",
+                "predicted_incidents": 4,
+                "hour": "4:00 PM",
+            },
+            {
+                "lga": "Oshodi",
+                "type": "Accident",
+                "predicted_incidents": 6,
+                "hour": "5:00 PM",
+            },
+            {
+                "lga": "Yaba",
+                "type": "Medical",
+                "predicted_incidents": 7,
+                "hour": "6:00 PM",
+            },
+        ]
 
 
 @lookup_router.post("/incidents")
@@ -188,13 +197,48 @@ async def create_incident(
     current_user=Depends(get_current_user),
 ):
     try:
-        current_hour = datetime.utcnow().hour
-        traffic_multiplier = get_traffic_multiplier(current_hour)
-        severity = calculate_severity(body.type, body.description, current_hour)
-        priority_score = severity * 2.0
+        responders_response = (
+            supabase.table("responders")
+            .select("*")
+            .eq("status", "available")
+            .execute()
+        )
+        available_responders = get_rows(responders_response)
+
+        try:
+            ai_result = process_incident(
+                description=body.description,
+                lat=body.lat,
+                lng=body.lng,
+                citizen_severity_hint=3,
+                lga=body.location,
+                available_responders=available_responders,
+            )
+            incident_type = str(ai_result["type"])
+            severity = max(1, min(5, int(ai_result["severity"])))
+            priority_score = max(1.0, min(10.0, float(ai_result["priority_score"])))
+            recommended_unit = str(ai_result["recommended_unit"])
+            eta_minutes = max(0, int(ai_result["eta_minutes"]))
+        except Exception as exc:
+            print(f"AI pipeline error: {exc}")
+            base_scores = {
+                "Medical": 9,
+                "Fire": 8,
+                "Accident": 7,
+                "Security": 6,
+            }
+            severity = base_scores.get(body.type, 7)
+            priority_score = float(severity * 2)
+            incident_type = body.type
+            recommended_unit = (
+                str(available_responders[0]["name"])
+                if available_responders
+                else "No units available"
+            )
+            eta_minutes = 5
 
         incident_payload = {
-            "type": body.type,
+            "type": incident_type,
             "description": body.description,
             "lat": body.lat,
             "lng": body.lng,
@@ -205,9 +249,7 @@ async def create_incident(
             "reporter_name": body.reporter_name,
             "reporter_phone": body.reporter_phone,
         }
-        incident_response = (
-            supabase.table("incidents").insert(incident_payload).execute()
-        )
+        incident_response = supabase.table("incidents").insert(incident_payload).execute()
         incident_data = get_rows(incident_response)
         if not incident_data:
             return JSONResponse(
@@ -218,13 +260,27 @@ async def create_incident(
         new_incident = incident_data[0]
         new_incident_id = new_incident["id"]
 
-        responders_response = (
-            supabase.table("responders")
-            .select("*")
-            .eq("status", "available")
-            .execute()
+        nearest_responder = next(
+            (
+                responder
+                for responder in available_responders
+                if responder.get("name") == recommended_unit
+            ),
+            None,
         )
-        responders = get_rows(responders_response)
+        if nearest_responder:
+            supabase.table("assignments").insert(
+                {
+                    "incident_id": new_incident_id,
+                    "responder_id": nearest_responder["id"],
+                    "eta_minutes": eta_minutes,
+                }
+            ).execute()
+
+            supabase.table("responders").update({"status": "assigned"}).eq(
+                "id",
+                nearest_responder["id"],
+            ).execute()
 
         hospitals_response = supabase.table("hospitals").select("*").execute()
         hospitals = get_rows(hospitals_response)
@@ -247,66 +303,22 @@ async def create_incident(
             else "Unknown"
         )
 
-        if not responders:
-            return {
-                "id": new_incident_id,
-                "severity": severity,
-                "priority_score": priority_score,
-                "recommended_unit": "No units available",
-                "eta_minutes": 0,
-                "nearest_hospital": nearest_hospital_name,
-                "hospital_capacity": hospital_capacity,
-                "status": "active",
-            }
-
-        nearest_responder: Row | None = None
-        nearest_distance = 0.0
-        nearest_score: float | None = None
-        for responder in responders:
-            distance_km = haversine(
-                body.lat,
-                body.lng,
-                float(responder["lat"]),
-                float(responder["lng"]),
-            )
-            score = distance_km * traffic_multiplier
-            if nearest_score is None or score < nearest_score:
-                nearest_score = score
-                nearest_distance = distance_km
-                nearest_responder = responder
-
-        eta_minutes = calculate_eta(nearest_distance, traffic_multiplier)
-        if nearest_responder is None:
-            return JSONResponse(
-                status_code=500,
-                content={"error": "Nearest responder could not be selected"},
-            )
-
-        supabase.table("assignments").insert(
-            {
-                "incident_id": new_incident_id,
-                "responder_id": nearest_responder["id"],
-                "eta_minutes": eta_minutes,
-            }
-        ).execute()
-
-        supabase.table("responders").update({"status": "assigned"}).eq(
-            "id",
-            nearest_responder["id"],
-        ).execute()
-
         return {
             "id": new_incident_id,
             "severity": severity,
             "priority_score": priority_score,
-            "recommended_unit": nearest_responder["name"],
+            "recommended_unit": recommended_unit,
             "eta_minutes": eta_minutes,
             "nearest_hospital": nearest_hospital_name,
             "hospital_capacity": hospital_capacity,
-            "status": "dispatched",
+            "status": "dispatched" if nearest_responder else "active",
         }
     except Exception as exc:
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        print(f"Incident intake error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Incident could not be processed"},
+        )
 
 
 @lookup_router.post("/assign")
@@ -348,15 +360,25 @@ async def assign_responder(
             )
 
         incident = incidents[0]
-        current_hour = datetime.utcnow().hour
-        traffic_multiplier = get_traffic_multiplier(current_hour)
-        distance_km = haversine(
-            float(responder["lat"]),
-            float(responder["lng"]),
-            float(incident["lat"]),
-            float(incident["lng"]),
-        )
-        eta_minutes = calculate_eta(distance_km, traffic_multiplier)
+        try:
+            route = optimize_routing(
+                incident_lat=float(incident["lat"]),
+                incident_lng=float(incident["lng"]),
+                responders=[responder],
+                hour_of_day=datetime.utcnow().hour,
+                lga=str(incident.get("lga", "Ikeja")),
+            )
+            eta_minutes = int(route.get("eta_minutes", 5))
+        except Exception as exc:
+            print(f"Routing optimization error: {exc}")
+            traffic_multiplier = get_traffic_multiplier(datetime.utcnow().hour)
+            distance_km = haversine(
+                float(responder["lat"]),
+                float(responder["lng"]),
+                float(incident["lat"]),
+                float(incident["lng"]),
+            )
+            eta_minutes = calculate_eta(distance_km, traffic_multiplier)
 
         supabase.table("assignments").insert(
             {
@@ -373,7 +395,11 @@ async def assign_responder(
 
         return {"eta": eta_minutes}
     except Exception as exc:
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        print(f"Manual assignment error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Assignment could not be completed"},
+        )
 
 
 @lookup_router.post("/resolve")
@@ -419,4 +445,8 @@ async def resolve_incident(
     except HTTPException:
         raise
     except Exception as exc:
-        return JSONResponse(status_code=500, content={"error": str(exc)})
+        print(f"Resolve incident error: {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Incident could not be resolved"},
+        )

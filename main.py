@@ -1,10 +1,20 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from routers.auth import router as auth_router
 from routers.incidents import incidents_router, lookup_router
+from startup import ensure_models_ready
 
-app = FastAPI(title="LEIN API", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    ensure_models_ready()
+    yield
+
+
+app = FastAPI(title="LEIN API", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
